@@ -1,5 +1,6 @@
 package org.jabref.logic.citationstyle;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -39,6 +40,20 @@ class CitationStyleGeneratorTest {
                 + "";
 
         assertEquals(expected, citation);
+    }
+    @Test
+    void testCreateCitations() throws IOException {
+        List<CitationStyle> styleList = CitationStyle.discoverCitationStyles();
+        BibDatabaseContext context = new BibDatabaseContext(new BibDatabase(List.of(TestEntry.getTestEntry())));
+        context.setMode(BibDatabaseMode.BIBLATEX);
+
+        var citations = CitationStyleGenerator.createCitation(List.of(TestEntry.getTestEntry()), styleList.getLast().getSource(), CitationStyleOutputFormat.HTML, context,bibEntryTypesManager);
+
+        for(var citation : citations) {
+            System.out.println(citation.getIndex());
+            System.out.println(citation.getText());
+        }
+        System.out.println(citations);
     }
 
     @Test

@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.SequencedCollection;
 
 import org.jabref.model.database.BibDatabaseContext;
 import org.jabref.model.entry.BibEntry;
@@ -12,6 +13,7 @@ import org.jabref.model.entry.BibEntryTypesManager;
 import de.undercouch.citeproc.CSL;
 import de.undercouch.citeproc.DefaultAbbreviationProvider;
 import de.undercouch.citeproc.output.Bibliography;
+import de.undercouch.citeproc.output.Citation;
 
 /**
  * Provides an adapter class to CSL. It holds a CSL instance under the hood that is only recreated when
@@ -48,6 +50,13 @@ public class CSLAdapter {
         cslInstance.registerCitationItems(dataProvider.getIds());
         final Bibliography bibliography = cslInstance.makeBibliography();
         return Arrays.asList(bibliography.getEntries());
+    }
+
+    public SequencedCollection<Citation> createCitation(List<BibEntry> bibEntries, String style, CitationStyleOutputFormat outputFormat, BibDatabaseContext databaseContext, BibEntryTypesManager entryTypesManager) throws IOException {
+        dataProvider.setData(bibEntries, databaseContext, entryTypesManager);
+        initialize(style, CitationStyleOutputFormat.HTML);
+        cslInstance.registerCitationItems(dataProvider.getIds());
+        return cslInstance.makeCitation(bibEntries.stream().map(entry -> entry.getCitationKey().orElse("")).toList());
     }
 
     /**
