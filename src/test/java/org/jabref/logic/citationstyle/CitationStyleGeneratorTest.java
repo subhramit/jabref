@@ -44,10 +44,16 @@ class CitationStyleGeneratorTest {
     @Test
     void testCreateCitations() throws IOException {
         List<CitationStyle> styleList = CitationStyle.discoverCitationStyles();
-        BibDatabaseContext context = new BibDatabaseContext(new BibDatabase(List.of(TestEntry.getTestEntry())));
+
+        // Bibentry this is a single entry
+        // BibDatabase internal list of all entries
+        // BibDatabaseContext = bibdatabase +  metadata (groups etc) = library
+
+
+        BibDatabaseContext context = new BibDatabaseContext(new BibDatabase(List.of(TestEntry.getTestEntry(), TestEntry.getTestEntryBook())));
         context.setMode(BibDatabaseMode.BIBLATEX);
 
-        var citations = CitationStyleGenerator.createCitation(List.of(TestEntry.getTestEntry()), styleList.getLast().getSource(), CitationStyleOutputFormat.HTML, context,bibEntryTypesManager);
+        var citations = CitationStyleGenerator.createCitation(List.of(TestEntry.getTestEntry(), TestEntry.getTestEntryBook()), styleList.getLast().getSource(), CitationStyleOutputFormat.HTML, context,bibEntryTypesManager);
 
         for(var citation : citations) {
             System.out.println(citation.getIndex());
