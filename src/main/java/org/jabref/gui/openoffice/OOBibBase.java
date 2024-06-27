@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 
 import org.jabref.gui.DialogService;
 import org.jabref.logic.JabRefException;
+import org.jabref.logic.citationstyle.CitationStyle;
 import org.jabref.logic.l10n.Localization;
 import org.jabref.logic.openoffice.NoDocumentFoundException;
 import org.jabref.logic.openoffice.action.EditMerge;
@@ -67,12 +68,15 @@ class OOBibBase {
 
     private final OOBibBaseConnect connection;
 
-    public OOBibBase(Path loPath, DialogService dialogService)
+    private final StyleSelectDialogViewModel styleSelectDialogViewModel;
+
+    public OOBibBase(Path loPath, DialogService dialogService, StyleSelectDialogViewModel styleSelectDialogViewModel)
             throws
             BootstrapException,
             CreationException {
 
         this.dialogService = dialogService;
+        this.styleSelectDialogViewModel = styleSelectDialogViewModel;
         this.connection = new OOBibBaseConnect(loPath, dialogService);
 
         this.refreshBibliographyDuringSyncWhenCiting = false;
@@ -579,9 +583,10 @@ class OOBibBase {
 
         try {
             UnoUndo.enterUndoContext(doc, "Insert citation");
-            // if clause - CSL vs jStyle - if CSL insert the citation here. Cursor and doc available.
+            // if-clause - CSL vs jStyle - if CSL insert the citation here. Cursor and doc available.
             System.out.println("I'm HerE");
-            CSLCitationOOAdapter.insertCitation(doc, cursor.get());
+            CitationStyle selectedCslStyle = styleSelectDialogViewModel.getSelectedCslStyle();
+            CSLCitationOOAdapter.insertCitation(doc, cursor.get(), selectedCslStyle);
 //            EditInsert.insertCitationGroup(doc,
 //                    frontend.get(),
 //                    cursor.get(),

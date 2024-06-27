@@ -64,7 +64,7 @@ public class StyleSelectDialogView extends BaseDialog<OOBibStyle> {
     private PreviewViewer previewArticle;
     private PreviewViewer previewBook;
 
-    public StyleSelectDialogView(StyleLoader loader) {
+    public StyleSelectDialogView(StyleLoader loader, StyleSelectDialogViewModel viewModel) {
         this.loader = loader;
 
         ViewLoader.view(this)
@@ -153,6 +153,13 @@ public class StyleSelectDialogView extends BaseDialog<OOBibStyle> {
         availableListView.setItems(viewModel.getAvailableLayouts());
         searchBox.textProperty().addListener((observable, oldValue, newValue) ->
                 viewModel.setAvailableLayoutsFilter(newValue));
+
+        availableListView.getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> {
+            viewModel.selectedLayoutProperty().set(newValue);
+            if (newValue != null) {
+                viewModel.selectedCslStyleProperty().set(newValue.getCitationStyle());
+            }
+        });
     }
 
     private ContextMenu createContextMenu() {

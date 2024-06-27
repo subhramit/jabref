@@ -53,15 +53,15 @@ public class CSLCitationOOAdapter {
         return html;
     }
 
-    public static void insertCitation(XTextDocument doc, XTextCursor cursor)
+    public static void insertCitation(XTextDocument doc, XTextCursor cursor, CitationStyle style)
             throws IllegalArgumentException, WrappedTargetException, CreationException {
 
         BibEntry entry = TestEntry.getTestEntry();
-        String style = CitationStyle.discoverCitationStyles().get(3).getSource();
+        String styleSource = style.getSource();
         System.out.println(style);
         CitationStyleOutputFormat format = CitationStyleOutputFormat.HTML;
 
-        String actualCitation = CitationStyleGenerator.generateCitation(entry, style, format, new BibDatabaseContext(), BIBENTRYTYPESMANAGER);
+        String actualCitation = CitationStyleGenerator.generateCitation(entry, styleSource, format, new BibDatabaseContext(), BIBENTRYTYPESMANAGER);
         System.out.println(actualCitation);
         String formattedHTML = transformHtml(actualCitation);
         System.out.println(formattedHTML);

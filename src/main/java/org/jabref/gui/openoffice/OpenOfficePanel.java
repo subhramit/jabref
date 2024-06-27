@@ -98,6 +98,7 @@ public class OpenOfficePanel {
     private final BibEntryTypesManager entryTypesManager;
     private OOBibBase ooBase;
     private OOBibStyle style;
+    private StyleSelectDialogViewModel styleSelectViewModel;
 
     public OpenOfficePanel(LibraryTabContainer tabContainer,
                            PreferencesService preferencesService,
@@ -148,6 +149,7 @@ public class OpenOfficePanel {
                 abbreviationRepository);
 
         initPanel();
+        this.styleSelectViewModel = new StyleSelectDialogViewModel(dialogService, loader, preferencesService, taskExecutor, entryTypesManager);
     }
 
     public Node getContent() {
@@ -188,7 +190,7 @@ public class OpenOfficePanel {
 
         setStyleFile.setMaxWidth(Double.MAX_VALUE);
         setStyleFile.setOnAction(event ->
-                dialogService.showCustomDialogAndWait(new StyleSelectDialogView(loader))
+                dialogService.showCustomDialogAndWait(new StyleSelectDialogView(loader, styleSelectViewModel))
                              .ifPresent(selectedStyle -> {
                                  style = selectedStyle;
                                  try {
@@ -429,7 +431,7 @@ public class OpenOfficePanel {
     }
 
     private OOBibBase createBibBase(Path loPath) throws BootstrapException, CreationException {
-        return new OOBibBase(loPath, dialogService);
+        return new OOBibBase(loPath, dialogService, styleSelectViewModel);
     }
 
     /**

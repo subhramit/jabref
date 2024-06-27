@@ -48,6 +48,7 @@ public class StyleSelectDialogViewModel {
     private final ObservableList<CitationStylePreviewLayout> availableLayouts = FXCollections.observableArrayList();
     private final ObjectProperty<CitationStylePreviewLayout> selectedLayoutProperty = new SimpleObjectProperty<>();
     private final FilteredList<CitationStylePreviewLayout> filteredAvailableLayouts = new FilteredList<>(availableLayouts);
+    private final ObjectProperty<CitationStyle> selectedCslStyle = new SimpleObjectProperty<>();
 
     public StyleSelectDialogViewModel(DialogService dialogService, StyleLoader styleLoader, PreferencesService preferencesService, TaskExecutor taskExecutor, BibEntryTypesManager bibEntryTypesManager) {
         this.dialogService = dialogService;
@@ -163,5 +164,13 @@ public class StyleSelectDialogViewModel {
     public void setAvailableLayoutsFilter(String searchTerm) {
         filteredAvailableLayouts.setPredicate(layout ->
                 searchTerm.isEmpty() || layout.getDisplayName().toLowerCase().contains(searchTerm.toLowerCase()));
+    }
+
+    public ObjectProperty<CitationStyle> selectedCslStyleProperty() {
+        return selectedCslStyle;
+    }
+
+    public CitationStyle getSelectedCslStyle() {
+        return selectedCslStyle.get();
     }
 }
