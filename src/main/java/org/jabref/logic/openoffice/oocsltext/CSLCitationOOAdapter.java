@@ -84,9 +84,13 @@ public class CSLCitationOOAdapter {
             Logger.warn("Formatted Citation: " + formattedHTML);
 
             OOText ooText = OOFormat.setLocaleNone(OOText.fromString(formattedHTML));
-            OOTextIntoOO.write(doc, cursor, OOText.fromString(STYLE_LIST.get(i).getTitle()));
+            OOTextIntoOO.write(doc, cursor, OOText.fromString("****************\n"));
+            cursor.collapseToEnd();
+            OOTextIntoOO.write(doc, cursor, OOText.fromString(STYLE_LIST.get(i).getTitle() + "\n"));
             cursor.collapseToEnd();
             OOTextIntoOO.write(doc, cursor, ooText);
+            cursor.collapseToEnd();
+            OOTextIntoOO.write(doc, cursor, OOText.fromString("****************\n"));
             cursor.collapseToEnd();
         }
     }
