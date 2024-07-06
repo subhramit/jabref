@@ -72,18 +72,23 @@ public class CSLCitationOOAdapter {
             throws IllegalArgumentException, WrappedTargetException, CreationException {
 
         BibEntry entry = TestEntry.getTestEntry();
-        String style = STYLE_LIST.get(cslIndex).getSource();
-        Logger.warn("Selected Style: " + STYLE_LIST.get(cslIndex).getTitle());
-        CitationStyleOutputFormat format = CitationStyleOutputFormat.HTML;
 
-        String actualCitation = CitationStyleGenerator.generateCitation(entry, style, format, new BibDatabaseContext(), BIBENTRYTYPESMANAGER);
-        Logger.warn("Unformatted Citation: " + actualCitation);
-        String formattedHTML = transformHtml(actualCitation);
-        Logger.warn("Formatted Citation: " + formattedHTML);
+        for (int i = 0; i <= 2531; i++) {
+            String style = STYLE_LIST.get(i).getSource();
+            Logger.warn("Selected Style: " + STYLE_LIST.get(i).getTitle());
+            CitationStyleOutputFormat format = CitationStyleOutputFormat.HTML;
 
-        OOText ooText = OOFormat.setLocaleNone(OOText.fromString(formattedHTML));
-        OOTextIntoOO.write(doc, cursor, ooText);
-        cursor.collapseToEnd();
+            String actualCitation = CitationStyleGenerator.generateCitation(entry, style, format, new BibDatabaseContext(), BIBENTRYTYPESMANAGER);
+            Logger.warn("Unformatted Citation: " + actualCitation);
+            String formattedHTML = transformHtml(actualCitation);
+            Logger.warn("Formatted Citation: " + formattedHTML);
+
+            OOText ooText = OOFormat.setLocaleNone(OOText.fromString(formattedHTML));
+            OOTextIntoOO.write(doc, cursor, OOText.fromString(STYLE_LIST.get(i).getTitle()));
+            cursor.collapseToEnd();
+            OOTextIntoOO.write(doc, cursor, ooText);
+            cursor.collapseToEnd();
+        }
     }
 
     public static void insertInText(XTextDocument doc, XTextCursor cursor) throws IOException, WrappedTargetException, CreationException {
