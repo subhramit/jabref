@@ -51,6 +51,7 @@ import org.jabref.gui.maintable.NameDisplayPreferences;
 import org.jabref.gui.maintable.NameDisplayPreferences.AbbreviationStyle;
 import org.jabref.gui.maintable.NameDisplayPreferences.DisplayStyle;
 import org.jabref.gui.mergeentries.DiffMode;
+import org.jabref.gui.openoffice.StyleSelectDialogViewModel;
 import org.jabref.gui.push.PushToApplications;
 import org.jabref.gui.search.SearchDisplayMode;
 import org.jabref.gui.sidepane.SidePaneType;
@@ -1284,7 +1285,7 @@ public class JabRefPreferences implements PreferencesService {
                 getBoolean(OO_SYNC_WHEN_CITING),
                 getStringList(OO_EXTERNAL_STYLE_FILES),
                 get(OO_BIBLIOGRAPHY_STYLE_FILE),
-                get(OO_BIBLIOGRAPHY_STYLE_TYPE),
+                StyleSelectDialogViewModel.StyleType.valueOf(get(OO_BIBLIOGRAPHY_STYLE_TYPE)),
                 get(OO_BIBLIOGRAPHY_CSL_STYLE_NAME));
 
         EasyBind.listen(openOfficePreferences.executablePathProperty(), (obs, oldValue, newValue) -> put(OO_EXECUTABLE_PATH, newValue));
@@ -1293,7 +1294,7 @@ public class JabRefPreferences implements PreferencesService {
         openOfficePreferences.getExternalStyles().addListener((InvalidationListener) change ->
                 putStringList(OO_EXTERNAL_STYLE_FILES, openOfficePreferences.getExternalStyles()));
         EasyBind.listen(openOfficePreferences.currentStyleProperty(), (obs, oldValue, newValue) -> put(OO_BIBLIOGRAPHY_STYLE_FILE, newValue));
-        EasyBind.listen(openOfficePreferences.currentStyleTypeProperty(), (obs, oldValue, newValue) -> put(OO_BIBLIOGRAPHY_STYLE_TYPE, newValue));
+        EasyBind.listen(openOfficePreferences.currentStyleTypeProperty(), (obs, oldValue, newValue) -> put(OO_BIBLIOGRAPHY_STYLE_TYPE, newValue.name()));
         EasyBind.listen(openOfficePreferences.currentCslStyleNameProperty(), (obs, oldValue, newValue) -> put(OO_BIBLIOGRAPHY_CSL_STYLE_NAME, newValue));
 
         return openOfficePreferences;

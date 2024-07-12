@@ -3,11 +3,15 @@ package org.jabref.logic.openoffice;
 import java.util.List;
 
 import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+
+import org.jabref.gui.openoffice.StyleSelectDialogViewModel;
 
 public class OpenOfficePreferences {
 
@@ -26,21 +30,21 @@ public class OpenOfficePreferences {
     private final BooleanProperty syncWhenCiting;
     private final ObservableList<String> externalStyles;
     private final StringProperty currentStyle;
-    private final StringProperty currentStyleType;
+    private final ObjectProperty<StyleSelectDialogViewModel.StyleType> currentStyleType;
     private final StringProperty currentCslStyleName;
 
     public OpenOfficePreferences(String executablePath,
                                  boolean useAllDatabases,
                                  boolean syncWhenCiting,
                                  List<String> externalStyles,
-                                 String currentStyle, String currentStyleType,
+                                 String currentStyle, StyleSelectDialogViewModel.StyleType currentStyleType,
                                  String currentCslStyleName) {
         this.executablePath = new SimpleStringProperty(executablePath);
         this.useAllDatabases = new SimpleBooleanProperty(useAllDatabases);
         this.syncWhenCiting = new SimpleBooleanProperty(syncWhenCiting);
         this.externalStyles = FXCollections.observableArrayList(externalStyles);
         this.currentStyle = new SimpleStringProperty(currentStyle);
-        this.currentStyleType = new SimpleStringProperty(currentStyleType);
+        this.currentStyleType = new SimpleObjectProperty<>((currentStyleType));
         this.currentCslStyleName = new SimpleStringProperty(currentCslStyleName);
     }
 
@@ -124,15 +128,15 @@ public class OpenOfficePreferences {
         this.currentStyle.set(currentStyle);
     }
 
-    public String getCurrentStyleType() {
+    public StyleSelectDialogViewModel.StyleType getCurrentStyleType() {
         return currentStyleType.get();
     }
 
-    public StringProperty currentStyleTypeProperty() {
+    public ObjectProperty<StyleSelectDialogViewModel.StyleType> currentStyleTypeProperty() {
         return currentStyleType;
     }
 
-    public void setCurrentStyleType(String currentStyleType) {
+    public void setCurrentStyleType(StyleSelectDialogViewModel.StyleType currentStyleType) {
         this.currentStyleType.set(currentStyleType);
     }
 
