@@ -76,6 +76,7 @@ public class StyleSelectDialogView extends BaseDialog<OOBibStyle> {
 
         setResultConverter(button -> {
             if (button == ButtonType.OK) {
+                viewModel.handleStyleSelection();
                 viewModel.storePrefs();
                 CSLCitationOOAdapter.setSelectedStyleName(viewModel.getSelectedStyleName());
                 return tvStyles.getSelectionModel().getSelectedItem().getStyle();
@@ -167,6 +168,17 @@ public class StyleSelectDialogView extends BaseDialog<OOBibStyle> {
                 viewModel.handleStyleSelection();
                 this.setResult(tvStyles.getSelectionModel().getSelectedItem().getStyle());
                 this.close();
+            }
+        });
+        viewModel.initializeSelectedStyle();
+
+        // Select the correct tab
+        EasyBind.subscribe(viewModel.selectedTabProperty(), tab -> {
+            if (tab != null) {
+                tabPane.getTabs().stream()
+                       .filter(t -> t.getText().equals(tab.getText()))
+                       .findFirst()
+                       .ifPresent(t -> tabPane.getSelectionModel().select(t));
             }
         });
     }

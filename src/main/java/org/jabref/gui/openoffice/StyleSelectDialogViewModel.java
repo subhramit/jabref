@@ -51,6 +51,7 @@ public class StyleSelectDialogViewModel {
     private final ObjectProperty<CitationStylePreviewLayout> selectedLayoutProperty = new SimpleObjectProperty<>();
     private final FilteredList<CitationStylePreviewLayout> filteredAvailableLayouts = new FilteredList<>(availableLayouts);
     private final ObjectProperty<Tab> selectedTab = new SimpleObjectProperty<>();
+
     public enum StyleType {
         CSL,
         JSTYLE
@@ -182,9 +183,40 @@ public class StyleSelectDialogViewModel {
     }
 
     public void handleStyleSelection() {
-        CitationStylePreviewLayout selectedLayout = selectedLayoutProperty.get();
-        if (selectedLayout != null) {
-            CSLCitationOOAdapter.setSelectedStyleName(selectedLayout.getDisplayName());
+        if (selectedTab.get().getText().equals("CSL Styles")) {
+            CitationStylePreviewLayout selectedLayout = selectedLayoutProperty.get();
+            if (selectedLayout != null) {
+                CSLCitationOOAdapter.setSelectedStyleName(selectedLayout.getDisplayName());
+                openOfficePreferences.setCurrentStyleType("CSL");
+                openOfficePreferences.setCurrentCslStyleName(selectedLayout.getDisplayName());
+            }
+        } else {
+            // Jstyle selection
+            openOfficePreferences.setCurrentStyleType("Jstyle");
+            openOfficePreferences.setCurrentStyle(selectedItem.getValue().getStylePath());
         }
+    }
+
+    public void initializeSelectedStyle() {
+        if ("CSL".equals(openOfficePreferences.getCurrentStyleType())) {
+            String cslStyleName = openOfficePreferences.getCurrentCslStyleName();
+            if (cslStyleName != null && !cslStyleName.isEmpty()) {
+                Optional<CitationStylePreviewLayout> selectedLayout = availableLayouts.stream()
+                                                                                      .filter(layout -> layout.getDisplayName().equals(cslStyleName))
+                                                                                      .findFirst();
+                selectedLayout.ifPresent(layout -> {
+                    selectedLayoutProperty.set(layout);
+                    selectedTab.set(new Tab("CSL Styles"));
+                });
+            }
+        } else {
+            String currentStyle = openOfficePreferences.getCurrentStyle();
+            selectedItem.setValue(getStyleOrDefault(currentStyle));
+            selectedTab.set(new Tab("Jstyles"));
+        }
+    }
+
+    public ObjectProperty<Tab> selectedTabProperty() {
+        return selectedTab;
     }
 }

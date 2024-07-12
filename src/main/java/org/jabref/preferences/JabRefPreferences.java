@@ -356,6 +356,8 @@ public class JabRefPreferences implements PreferencesService {
     public static final String OO_USE_ALL_OPEN_BASES = "useAllOpenBases";
     public static final String OO_BIBLIOGRAPHY_STYLE_FILE = "ooBibliographyStyleFile";
     public static final String OO_EXTERNAL_STYLE_FILES = "ooExternalStyleFiles";
+    public static final String OO_BIBLIOGRAPHY_STYLE_TYPE = "ooBibliographyStyleType";
+    public static final String OO_BIBLIOGRAPHY_CSL_STYLE_NAME = "ooBibliographyCslStyleName";
 
     // Special field preferences
     public static final String SPECIALFIELDSENABLED = "specialFieldsEnabled";
@@ -1281,7 +1283,9 @@ public class JabRefPreferences implements PreferencesService {
                 getBoolean(OO_USE_ALL_OPEN_BASES),
                 getBoolean(OO_SYNC_WHEN_CITING),
                 getStringList(OO_EXTERNAL_STYLE_FILES),
-                get(OO_BIBLIOGRAPHY_STYLE_FILE));
+                get(OO_BIBLIOGRAPHY_STYLE_FILE),
+                get(OO_BIBLIOGRAPHY_STYLE_TYPE),
+                get(OO_BIBLIOGRAPHY_CSL_STYLE_NAME));
 
         EasyBind.listen(openOfficePreferences.executablePathProperty(), (obs, oldValue, newValue) -> put(OO_EXECUTABLE_PATH, newValue));
         EasyBind.listen(openOfficePreferences.useAllDatabasesProperty(), (obs, oldValue, newValue) -> putBoolean(OO_USE_ALL_OPEN_BASES, newValue));
@@ -1289,6 +1293,8 @@ public class JabRefPreferences implements PreferencesService {
         openOfficePreferences.getExternalStyles().addListener((InvalidationListener) change ->
                 putStringList(OO_EXTERNAL_STYLE_FILES, openOfficePreferences.getExternalStyles()));
         EasyBind.listen(openOfficePreferences.currentStyleProperty(), (obs, oldValue, newValue) -> put(OO_BIBLIOGRAPHY_STYLE_FILE, newValue));
+        EasyBind.listen(openOfficePreferences.currentStyleTypeProperty(), (obs, oldValue, newValue) -> put(OO_BIBLIOGRAPHY_STYLE_TYPE, newValue));
+        EasyBind.listen(openOfficePreferences.currentCslStyleNameProperty(), (obs, oldValue, newValue) -> put(OO_BIBLIOGRAPHY_CSL_STYLE_NAME, newValue));
 
         return openOfficePreferences;
     }

@@ -26,17 +26,22 @@ public class OpenOfficePreferences {
     private final BooleanProperty syncWhenCiting;
     private final ObservableList<String> externalStyles;
     private final StringProperty currentStyle;
+    private final StringProperty currentStyleType;
+    private final StringProperty currentCslStyleName;
 
     public OpenOfficePreferences(String executablePath,
                                  boolean useAllDatabases,
                                  boolean syncWhenCiting,
                                  List<String> externalStyles,
-                                 String currentStyle) {
+                                 String currentStyle, String currentStyleType,
+                                 String currentCslStyleName) {
         this.executablePath = new SimpleStringProperty(executablePath);
         this.useAllDatabases = new SimpleBooleanProperty(useAllDatabases);
         this.syncWhenCiting = new SimpleBooleanProperty(syncWhenCiting);
         this.externalStyles = FXCollections.observableArrayList(externalStyles);
         this.currentStyle = new SimpleStringProperty(currentStyle);
+        this.currentStyleType = new SimpleStringProperty(currentStyleType);
+        this.currentCslStyleName = new SimpleStringProperty(currentCslStyleName);
     }
 
     public void clearConnectionSettings() {
@@ -117,5 +122,29 @@ public class OpenOfficePreferences {
 
     public void setCurrentStyle(String currentStyle) {
         this.currentStyle.set(currentStyle);
+    }
+
+    public String getCurrentStyleType() {
+        return currentStyleType.get();
+    }
+
+    public StringProperty currentStyleTypeProperty() {
+        return currentStyleType;
+    }
+
+    public void setCurrentStyleType(String currentStyleType) {
+        this.currentStyleType.set(currentStyleType);
+    }
+
+    public String getCurrentCslStyleName() {
+        return currentCslStyleName.get();
+    }
+
+    public StringProperty currentCslStyleNameProperty() {
+        return currentCslStyleName;
+    }
+
+    public void setCurrentCslStyleName(String currentCslStyleName) {
+        this.currentCslStyleName.set(currentCslStyleName);
     }
 }
