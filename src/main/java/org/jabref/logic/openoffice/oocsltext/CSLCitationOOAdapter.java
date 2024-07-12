@@ -16,13 +16,13 @@ import org.jabref.model.openoffice.ootext.OOFormat;
 import org.jabref.model.openoffice.ootext.OOText;
 import org.jabref.model.openoffice.ootext.OOTextIntoOO;
 import org.jabref.model.openoffice.uno.CreationException;
-
+import org.tinylog.Logger;
 import com.sun.star.lang.WrappedTargetException;
 import com.sun.star.text.XTextCursor;
 import com.sun.star.text.XTextDocument;
 import de.undercouch.citeproc.output.Citation;
 import org.apache.commons.text.StringEscapeUtils;
-import org.tinylog.Logger;
+
 
 public class CSLCitationOOAdapter {
 
