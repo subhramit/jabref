@@ -68,7 +68,7 @@ public class StyleSelectDialogViewModel {
 
         styles.addAll(loadStyles());
 
-        String currentStyle = openOfficePreferences.getCurrentStyle();
+        String currentStyle = openOfficePreferences.getCurrentJStyle();
         selectedItem.setValue(getStyleOrDefault(currentStyle));
 
         BackgroundTask.wrap(CitationStyle::discoverCitationStyles)
@@ -99,7 +99,7 @@ public class StyleSelectDialogViewModel {
         Optional<Path> path = dialogService.showFileOpenDialog(fileDialogConfiguration);
         path.map(Path::toAbsolutePath).map(Path::toString).ifPresent(stylePath -> {
             if (styleLoader.addStyleIfValid(stylePath)) {
-                openOfficePreferences.setCurrentStyle(stylePath);
+                openOfficePreferences.setCurrentJStyle(stylePath);
                 styles.setAll(loadStyles());
                 selectedItem.setValue(getStyleOrDefault(stylePath));
             } else {
@@ -156,7 +156,7 @@ public class StyleSelectDialogViewModel {
                                             .map(OOBibStyle::getPath)
                                             .collect(Collectors.toList());
         openOfficePreferences.setExternalStyles(externalStyles);
-        openOfficePreferences.setCurrentStyle(selectedItem.getValue().getStylePath());
+        openOfficePreferences.setCurrentJStyle(selectedItem.getValue().getStylePath());
     }
 
     private StyleSelectItemViewModel getStyleOrDefault(String stylePath) {
@@ -196,7 +196,7 @@ public class StyleSelectDialogViewModel {
         } else {
             // Jstyle selection
             openOfficePreferences.setCurrentStyleType(StyleType.JSTYLE);
-            openOfficePreferences.setCurrentStyle(selectedItem.getValue().getStylePath());
+            openOfficePreferences.setCurrentJStyle(selectedItem.getValue().getStylePath());
         }
     }
 
@@ -213,8 +213,8 @@ public class StyleSelectDialogViewModel {
                 });
             }
         } else {
-            String currentStyle = openOfficePreferences.getCurrentStyle();
-            selectedItem.setValue(getStyleOrDefault(currentStyle));
+            String currentJStyle = openOfficePreferences.getCurrentJStyle();
+            selectedItem.setValue(getStyleOrDefault(currentJStyle));
             selectedTab.set(new Tab(JSTYLES_TAB));
         }
     }

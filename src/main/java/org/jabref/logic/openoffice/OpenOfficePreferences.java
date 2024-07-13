@@ -29,7 +29,7 @@ public class OpenOfficePreferences {
     private final BooleanProperty useAllDatabases;
     private final BooleanProperty syncWhenCiting;
     private final ObservableList<String> externalStyles;
-    private final StringProperty currentStyle;
+    private final StringProperty currentJStyle;
     private final ObjectProperty<StyleSelectDialogViewModel.StyleType> currentStyleType;
     private final StringProperty currentCslStyleName;
 
@@ -37,13 +37,13 @@ public class OpenOfficePreferences {
                                  boolean useAllDatabases,
                                  boolean syncWhenCiting,
                                  List<String> externalStyles,
-                                 String currentStyle, StyleSelectDialogViewModel.StyleType currentStyleType,
+                                 String currentJStyle, StyleSelectDialogViewModel.StyleType currentStyleType,
                                  String currentCslStyleName) {
         this.executablePath = new SimpleStringProperty(executablePath);
         this.useAllDatabases = new SimpleBooleanProperty(useAllDatabases);
         this.syncWhenCiting = new SimpleBooleanProperty(syncWhenCiting);
         this.externalStyles = FXCollections.observableArrayList(externalStyles);
-        this.currentStyle = new SimpleStringProperty(currentStyle);
+        this.currentJStyle = new SimpleStringProperty(currentJStyle);
         this.currentStyleType = new SimpleObjectProperty<>((currentStyleType));
         this.currentCslStyleName = new SimpleStringProperty(currentCslStyleName);
     }
@@ -53,7 +53,7 @@ public class OpenOfficePreferences {
     }
 
     public void clearCurrentStyle() {
-        this.currentStyle.set("");
+        this.currentJStyle.set("");
     }
 
     /**
@@ -116,16 +116,16 @@ public class OpenOfficePreferences {
     /**
      * path to the used style file
      */
-    public String getCurrentStyle() {
-        return currentStyle.get();
+    public String getCurrentJStyle() {
+        return currentJStyle.get();
     }
 
-    public StringProperty currentStyleProperty() {
-        return currentStyle;
+    public StringProperty currentJStyleProperty() {
+        return currentJStyle;
     }
 
-    public void setCurrentStyle(String currentStyle) {
-        this.currentStyle.set(currentStyle);
+    public void setCurrentJStyle(String currentJStyle) {
+        this.currentJStyle.set(currentJStyle);
     }
 
     public StyleSelectDialogViewModel.StyleType getCurrentStyleType() {

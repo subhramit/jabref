@@ -130,7 +130,7 @@ public class StyleLoader {
     }
 
     public OOBibStyle getUsedStyle() {
-        String filename = openOfficePreferences.getCurrentStyle();
+        String filename = openOfficePreferences.getCurrentJStyle();
         if (filename != null) {
             for (OOBibStyle style : getStyles()) {
                 if (filename.equals(style.getPath())) {
@@ -139,7 +139,7 @@ public class StyleLoader {
             }
         }
         // Pick the first internal
-        openOfficePreferences.setCurrentStyle(internalStyles.getFirst().getPath());
+        openOfficePreferences.setCurrentJStyle(internalStyles.getFirst().getPath());
         return internalStyles.getFirst();
     }
 }

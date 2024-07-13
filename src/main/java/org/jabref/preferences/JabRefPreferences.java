@@ -1293,7 +1293,7 @@ public class JabRefPreferences implements PreferencesService {
         EasyBind.listen(openOfficePreferences.syncWhenCitingProperty(), (obs, oldValue, newValue) -> putBoolean(OO_SYNC_WHEN_CITING, newValue));
         openOfficePreferences.getExternalStyles().addListener((InvalidationListener) change ->
                 putStringList(OO_EXTERNAL_STYLE_FILES, openOfficePreferences.getExternalStyles()));
-        EasyBind.listen(openOfficePreferences.currentStyleProperty(), (obs, oldValue, newValue) -> put(OO_BIBLIOGRAPHY_STYLE_FILE, newValue));
+        EasyBind.listen(openOfficePreferences.currentJStyleProperty(), (obs, oldValue, newValue) -> put(OO_BIBLIOGRAPHY_STYLE_FILE, newValue));
         EasyBind.listen(openOfficePreferences.currentStyleTypeProperty(), (obs, oldValue, newValue) -> put(OO_BIBLIOGRAPHY_STYLE_TYPE, newValue.name()));
         EasyBind.listen(openOfficePreferences.currentCslStyleNameProperty(), (obs, oldValue, newValue) -> put(OO_BIBLIOGRAPHY_CSL_STYLE_NAME, newValue));
 
