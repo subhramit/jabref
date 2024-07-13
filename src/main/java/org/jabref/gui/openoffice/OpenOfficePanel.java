@@ -168,9 +168,13 @@ public class OpenOfficePanel {
         final boolean FAIL = true;
         final boolean PASS = false;
 
-        if (jStyle == null) {
-            jStyle = loader.getUsedStyle();
-        } else {
+        StyleLoader.StyleIdentifier styleIdentifier = loader.getUsedStyle();
+        currentStyleType = styleIdentifier.getType();
+
+        if (currentStyleType == StyleSelectDialogViewModel.StyleType.JSTYLE) {
+            if (jStyle == null || !jStyle.equals(styleIdentifier.getStyle())) {
+                jStyle = (OOBibStyle) styleIdentifier.getStyle();
+            }
             try {
                 jStyle.ensureUpToDate();
             } catch (IOException ex) {
@@ -181,6 +185,18 @@ public class OpenOfficePanel {
                 new OOError(title, msg, ex).showErrorDialog(dialogService);
                 return FAIL;
             }
+        } else if (currentStyleType == StyleSelectDialogViewModel.StyleType.CSL) {
+            String cslStyleName = styleIdentifier.getName();
+            if (cslStyleName == null || cslStyleName.isEmpty()) {
+                String msg = Localization.lang("No CSL style selected");
+                new OOError(title, msg).showErrorDialog(dialogService);
+                return FAIL;
+            }
+            CSLCitationOOAdapter.setSelectedStyleName(cslStyleName);
+        } else {
+            String msg = Localization.lang("No valid style selected");
+            new OOError(title, msg).showErrorDialog(dialogService);
+            return FAIL;
         }
         return PASS;
     }

@@ -8,9 +8,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
+import org.jabref.gui.openoffice.StyleSelectDialogViewModel;
 import org.jabref.logic.journals.JournalAbbreviationRepository;
 import org.jabref.logic.layout.LayoutFormatterPreferences;
 import org.jabref.logic.openoffice.OpenOfficePreferences;
+import org.jabref.logic.openoffice.oocsltext.CSLCitationOOAdapter;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,10 +72,12 @@ public class StyleLoader {
             } else {
                 LOGGER.error("Style with filename {} is invalid", filename);
             }
-        } catch (FileNotFoundException e) {
+        } catch (
+                FileNotFoundException e) {
             // The file couldn't be found... should we tell anyone?
             LOGGER.info("Cannot find external style file {}", filename, e);
-        } catch (IOException e) {
+        } catch (
+                IOException e) {
             LOGGER.info("Problem reading external style file {}", filename, e);
         }
         return false;
@@ -91,10 +95,12 @@ public class StyleLoader {
                 } else {
                     LOGGER.error("Style with filename {} is invalid", filename);
                 }
-            } catch (FileNotFoundException e) {
+            } catch (
+                    FileNotFoundException e) {
                 // The file couldn't be found... should we tell anyone?
                 LOGGER.info("Cannot find external style file {}", filename);
-            } catch (IOException e) {
+            } catch (
+                    IOException e) {
                 LOGGER.info("Problem reading external style file {}", filename, e);
             }
         }
@@ -105,7 +111,8 @@ public class StyleLoader {
         for (String filename : internalStyleFiles) {
             try {
                 internalStyles.add(new OOBibStyle(filename, layoutFormatterPreferences, abbreviationRepository));
-            } catch (IOException e) {
+            } catch (
+                    IOException e) {
                 LOGGER.info("Problem reading internal style file {}", filename, e);
             }
         }
@@ -129,17 +136,78 @@ public class StyleLoader {
         return false;
     }
 
-    public OOBibStyle getUsedStyle() {
+    public StyleIdentifier getUsedStyle() {
+        StyleSelectDialogViewModel.StyleType lastUsedStyleType = openOfficePreferences.getCurrentStyleType();
+
+        if (lastUsedStyleType == StyleSelectDialogViewModel.StyleType.CSL) {
+            String cslStyleName = openOfficePreferences.getCurrentCslStyleName();
+            if (cslStyleName != null && !cslStyleName.isEmpty()) {
+                // Set the CSL style using CSLCitationOOAdapter
+                CSLCitationOOAdapter.setSelectedStyleName(cslStyleName);
+                LOGGER.info("CSL style '{}' has been set", cslStyleName);
+
+                return new StyleIdentifier(StyleSelectDialogViewModel.StyleType.CSL, cslStyleName);
+            }
+        }
+
+        // This is the existing logic for JStyle
         String filename = openOfficePreferences.getCurrentJStyle();
         if (filename != null) {
             for (OOBibStyle style : getStyles()) {
                 if (filename.equals(style.getPath())) {
-                    return style;
+                    return new StyleIdentifier(StyleSelectDialogViewModel.StyleType.JSTYLE, style);
                 }
             }
         }
-        // Pick the first internal
-        openOfficePreferences.setCurrentJStyle(internalStyles.getFirst().getPath());
-        return internalStyles.getFirst();
+
+        // If no valid style is found, pick the first internal style as default
+        OOBibStyle defaultStyle = internalStyles.getFirst();
+        openOfficePreferences.setCurrentJStyle(defaultStyle.getPath());
+        openOfficePreferences.setCurrentStyleType(StyleSelectDialogViewModel.StyleType.JSTYLE);
+        return new StyleIdentifier(StyleSelectDialogViewModel.StyleType.JSTYLE, defaultStyle);
+    }
+
+    /**
+     * @param style This can be either a String (for CSL) or OOBibStyle (for JStyle)
+     */
+    public class StyleIdentifier {
+        private final StyleSelectDialogViewModel.StyleType type;
+        private final Object style; // This can be either a String (for CSL) or OOBibStyle (for JStyle)
+
+        public StyleIdentifier(StyleSelectDialogViewModel.StyleType type, Object style) {
+            this.type = type;
+            this.style = style;
+        }
+
+        public StyleSelectDialogViewModel.StyleType getType() {
+            return type;
+        }
+
+        public Object getStyle() {
+            return style;
+        }
+
+        public String getName() {
+            if (type == StyleSelectDialogViewModel.StyleType.CSL) {
+                return (String) style;
+            } else {
+                return ((OOBibStyle) style).getName();
+            }
+        }
+
+        public String getPath() {
+            if (type == StyleSelectDialogViewModel.StyleType.CSL) {
+                return null; // CSL styles don't have a path
+            } else {
+                return ((OOBibStyle) style).getPath();
+            }
+        }
+
+        public OOBibStyle getOOBibStyle() {
+            if (type == StyleSelectDialogViewModel.StyleType.JSTYLE) {
+                return (OOBibStyle) style;
+            }
+            return null;
+        }
     }
 }
