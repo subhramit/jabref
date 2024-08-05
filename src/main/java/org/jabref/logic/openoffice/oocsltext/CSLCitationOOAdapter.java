@@ -1,7 +1,9 @@
 package org.jabref.logic.openoffice.oocsltext;
 
-import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.jabref.logic.citationstyle.CitationStyle;
 import org.jabref.logic.citationstyle.CitationStyleGenerator;
@@ -12,45 +14,162 @@ import org.jabref.model.entry.BibEntryTypesManager;
 import org.jabref.model.openoffice.ootext.OOFormat;
 import org.jabref.model.openoffice.ootext.OOText;
 import org.jabref.model.openoffice.ootext.OOTextIntoOO;
-import org.jabref.model.openoffice.uno.CreationException;
 
-import com.sun.star.lang.WrappedTargetException;
 import com.sun.star.text.XTextCursor;
 import com.sun.star.text.XTextDocument;
 import org.apache.commons.text.StringEscapeUtils;
 
 public class CSLCitationOOAdapter {
 
+    public static final String[] PREFIXES = {"JABREF_", "CSL_"};
+    public static final int REFMARK_ADD_CHARS = 8;
+
     private final CitationStyleOutputFormat format = CitationStyleOutputFormat.HTML;
+    private final XTextDocument document;
+    private CSLReferenceMarkManager markManager;
+    private boolean isNumericStyle = false;
+
+    public CSLCitationOOAdapter(XTextDocument doc) throws Exception {
+        this.document = doc;
+        this.markManager = new CSLReferenceMarkManager(doc);
+    }
+
+    public void readExistingMarks() throws Exception {
+        markManager.readExistingMarks();
+    }
 
     public void insertBibliography(XTextDocument doc, XTextCursor cursor, CitationStyle selectedStyle, List<BibEntry> entries, BibDatabaseContext bibDatabaseContext, BibEntryTypesManager bibEntryTypesManager)
-            throws IllegalArgumentException, WrappedTargetException, CreationException {
+            throws Exception {
 
         String style = selectedStyle.getSource();
+        isNumericStyle = selectedStyle.isNumericStyle();
 
         List<String> citations = CitationStyleGenerator.generateCitation(entries, style, format, bibDatabaseContext, bibEntryTypesManager);
 
-        for (String citation: citations) {
-            writeCitation(doc, cursor, citation);
+        for (int i = 0; i < citations.size(); i++) {
+            BibEntry entry = entries.get(i);
+            String citation = citations.get(i);
+            writeCitation(doc, cursor, entry, citation);
         }
     }
 
     public void insertInText(XTextDocument doc, XTextCursor cursor, CitationStyle selectedStyle, List<BibEntry> entries, BibDatabaseContext bibDatabaseContext, BibEntryTypesManager bibEntryTypesManager)
-            throws IOException, WrappedTargetException, CreationException {
+            throws Exception {
 
         String style = selectedStyle.getSource();
+        isNumericStyle = selectedStyle.isNumericStyle();
 
+        // Generate a single in-text citation for all entries
         String inTextCitation = CitationStyleGenerator.generateInText(entries, style, format, bibDatabaseContext, bibEntryTypesManager).getText();
 
-        writeCitation(doc, cursor, inTextCitation);
+        String formattedCitation = transformHtml(inTextCitation);
+        System.out.println(formattedCitation);
+
+        if (isNumericStyle) {
+            formattedCitation = updateMultipleCitations(formattedCitation, entries);
+        }
+
+        OOText ooText = OOFormat.setLocaleNone(OOText.fromString(formattedCitation));
+
+        // Insert the citation text with multiple reference marks
+        insertMultipleReferenceMarks(doc, cursor, entries, ooText);
+
+        // Move the cursor to the end of the inserted text
+        cursor.collapseToEnd();
     }
 
-    private void writeCitation(XTextDocument doc, XTextCursor cursor, String citation) throws WrappedTargetException, CreationException {
-
-        String formattedCitation = transformHtml(citation);
-        OOText ooText = OOFormat.setLocaleNone(OOText.fromString(formattedCitation));
+    private void insertMultipleReferenceMarks(XTextDocument doc, XTextCursor cursor, List<BibEntry> entries, OOText ooText) throws Exception {
+        // Insert the entire citation text as-is
         OOTextIntoOO.write(doc, cursor, ooText);
+
+        // Insert reference marks for each entry after the citation
+        for (BibEntry entry : entries) {
+            CSLReferenceMark mark = markManager.createReferenceMark(entry, "InTextReferenceMark");
+            OOText emptyOOText = OOFormat.setLocaleNone(OOText.fromString(""));
+            mark.insertReferenceIntoOO(doc, cursor, emptyOOText);
+        }
+
+        // Move the cursor to the end of the inserted text
         cursor.collapseToEnd();
+    }
+
+    private List<String> splitCitation(String citation) {
+        List<String> parts = new ArrayList<>();
+        Pattern pattern = Pattern.compile("\\[\\d+\\]|\\([^)]+\\)|[^,;]+");
+        Matcher matcher = pattern.matcher(citation);
+        while (matcher.find()) {
+            parts.add(matcher.group());
+        }
+        return parts;
+    }
+
+    private String updateMultipleCitations(String citation, List<BibEntry> entries) {
+        Pattern pattern = Pattern.compile("(\\D*)(\\d+)(\\D*)");
+        Matcher matcher = pattern.matcher(citation);
+        StringBuilder sb = new StringBuilder();
+        int entryIndex = 0;
+
+        while (matcher.find() && entryIndex < entries.size()) {
+            String prefix = matcher.group(1);
+            String suffix = matcher.group(3);
+
+            int currentNumber = markManager.getCitationNumber(entries.get(entryIndex).getCitationKey().orElse(""));
+
+            matcher.appendReplacement(sb, Matcher.quoteReplacement(prefix + currentNumber + suffix));
+            entryIndex++;
+        }
+        matcher.appendTail(sb);
+        return sb.toString();
+    }
+
+    private void writeCitation(XTextDocument doc, XTextCursor cursor, BibEntry entry, String citation) throws Exception {
+        String citationKey = entry.getCitationKey().orElse("");
+        int currentNumber = markManager.getCitationNumber(citationKey);
+
+        CSLReferenceMark mark = markManager.createReferenceMark(entry, "CSLReferenceMark");
+        String formattedCitation;
+        if (isNumericStyle) {
+            formattedCitation = updateSingleCitation(transformHtml(citation), currentNumber);
+        } else {
+            formattedCitation = transformHtml(citation);
+        }
+        OOText ooText = OOFormat.setLocaleNone(OOText.fromString(formattedCitation));
+
+        // Insert the citation text wrapped in a reference mark
+        mark.insertReferenceIntoOO(doc, cursor, ooText);
+
+        // Move the cursor to the end of the inserted text
+        cursor.collapseToEnd();
+    }
+
+    private String updateSingleCitation(String citation, int currentNumber) {
+        Pattern pattern = Pattern.compile("(\\[|\\()?(\\d+)(\\]|\\))?(\\.)?\\s*");
+        Matcher matcher = pattern.matcher(citation);
+        StringBuilder sb = new StringBuilder();
+        boolean numberReplaced = false;
+
+        while (matcher.find()) {
+            if (!numberReplaced) {
+                String prefix = matcher.group(1) != null ? matcher.group(1) : "";
+                String suffix = matcher.group(3) != null ? matcher.group(3) : "";
+                String dot = matcher.group(4) != null ? "." : "";
+
+                String replacement;
+                if (prefix.isEmpty() && suffix.isEmpty()) {
+                    replacement = currentNumber + dot + " ";
+                } else {
+                    replacement = prefix + currentNumber + suffix + dot + " ";
+                }
+
+                matcher.appendReplacement(sb, Matcher.quoteReplacement(replacement));
+                numberReplaced = true;
+            } else {
+                // If we've already replaced the number, keep any subsequent numbers as they are
+                matcher.appendReplacement(sb, matcher.group());
+            }
+        }
+        matcher.appendTail(sb);
+        return sb.toString();
     }
 
     /**

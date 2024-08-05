@@ -1,6 +1,5 @@
 package org.jabref.gui.openoffice;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -59,7 +58,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Class for manipulating the Bibliography of the currently started document in OpenOffice.
  */
-class OOBibBase {
+public class OOBibBase {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OOBibBase.class);
 
@@ -73,7 +72,7 @@ class OOBibBase {
 
     private final OOBibBaseConnect connection;
 
-    private final CSLCitationOOAdapter cslCitationOOAdapter;
+    private CSLCitationOOAdapter cslCitationOOAdapter;
 
     public OOBibBase(Path loPath, DialogService dialogService)
             throws
@@ -85,8 +84,15 @@ class OOBibBase {
 
         this.refreshBibliographyDuringSyncWhenCiting = false;
         this.alwaysAddCitedOnPages = false;
+    }
 
-        cslCitationOOAdapter = new CSLCitationOOAdapter();
+    private void initializeCitationAdapter(XTextDocument doc) {
+        try {
+            this.cslCitationOOAdapter = new CSLCitationOOAdapter(doc);
+            this.cslCitationOOAdapter.readExistingMarks();
+        } catch (Exception e) {
+            LOGGER.error("Error initializing CSLCitationOOAdapter", e);
+        }
     }
 
     public void guiActionSelectDocument(boolean autoSelectForSingle) {
@@ -100,15 +106,22 @@ class OOBibBase {
         } catch (DisposedException ex) {
             OOError.from(ex).setTitle(errorTitle).showErrorDialog(dialogService);
         } catch (WrappedTargetException
-                | IndexOutOfBoundsException
-                | NoSuchElementException ex) {
+                 | IndexOutOfBoundsException
+                 | NoSuchElementException ex) {
             LOGGER.warn("Problem connecting", ex);
             OOError.fromMisc(ex).setTitle(errorTitle).showErrorDialog(dialogService);
         }
 
         if (this.isConnectedToDocument()) {
+            initializeCitationAdapter(this.getXTextDocument().get());
             dialogService.notify(Localization.lang("Connected to document") + ": "
                     + this.getCurrentDocumentTitle().orElse(""));
+            try {
+                this.cslCitationOOAdapter = new CSLCitationOOAdapter(this.getXTextDocument().get());
+                this.cslCitationOOAdapter.readExistingMarks();
+            } catch (Exception e) {
+                LOGGER.error("Error initializing CSLCitationOOAdapter", e);
+            }
         }
     }
 
@@ -591,13 +604,15 @@ class OOBibBase {
         }
 
         try {
+
             UnoUndo.enterUndoContext(doc, "Insert citation");
             if (style instanceof CitationStyle citationStyle) {
                 // Handle insertion of CSL Style citations
+                CSLCitationOOAdapter adapter = getOrCreateCSLCitationOOAdapter(doc);
                 if (citationType == CitationType.AUTHORYEAR_INTEXT) {
-                    cslCitationOOAdapter.insertInText(doc, cursor.get(), citationStyle, entries, bibDatabaseContext, bibEntryTypesManager);
+                    adapter.insertInText(doc, cursor.get(), citationStyle, entries, bibDatabaseContext, bibEntryTypesManager);
                 } else {
-                    cslCitationOOAdapter.insertBibliography(doc, cursor.get(), citationStyle, entries, bibDatabaseContext, bibEntryTypesManager);
+                    adapter.insertBibliography(doc, cursor.get(), citationStyle, entries, bibDatabaseContext, bibEntryTypesManager);
                 }
             } else if (style instanceof JStyle jStyle) {
                 // Handle insertion of JStyle citations
@@ -618,12 +633,7 @@ class OOBibBase {
             OOError.from(ex).setTitle(errorTitle).showErrorDialog(dialogService);
         } catch (DisposedException ex) {
             OOError.from(ex).setTitle(errorTitle).showErrorDialog(dialogService);
-        } catch (CreationException
-                 | WrappedTargetException
-                 | IOException
-                 | PropertyVetoException
-                 | IllegalTypeException
-                 | NotRemoveableException ex) {
+        } catch (Exception ex) {
             LOGGER.warn("Could not insert entry", ex);
             OOError.fromMisc(ex).setTitle(errorTitle).showErrorDialog(dialogService);
         } finally {
@@ -878,5 +888,13 @@ class OOBibBase {
                 OOError.fromMisc(ex).setTitle(errorTitle).showErrorDialog(dialogService);
             }
         }
+    }
+
+    private CSLCitationOOAdapter getOrCreateCSLCitationOOAdapter(XTextDocument doc) throws Exception {
+        if (cslCitationOOAdapter == null) {
+            cslCitationOOAdapter = new CSLCitationOOAdapter(doc);
+            cslCitationOOAdapter.readExistingMarks();
+        }
+        return cslCitationOOAdapter;
     }
 }
