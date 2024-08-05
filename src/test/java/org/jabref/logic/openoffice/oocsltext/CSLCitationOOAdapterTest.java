@@ -4,7 +4,10 @@ import org.junit.jupiter.api.Test;
 
 public class CSLCitationOOAdapterTest {
 
-    // Tests for APA Style citations
+    /** Tests for American Psychological Association (APA) Style citations
+     * Non-numeric style
+     * Tests brackets "()", italics, slashes "/"
+     */
     @Test
     void htmlTransformAPA() {
     }
@@ -30,5 +33,15 @@ public class CSLCitationOOAdapterTest {
     void updateInTextNumbersIEEE() {
     }
 
+    /** Tests for "Springer - Lecture Notes in Computer Science" Style citations
+     * Numeric style
+     * Tests brackets "()", italics, slashes "/"
+     */
+
+    // Tests for "De Montfort University - Harvard" Style citations
+
+    // Tests for "Modern Language Association 7th edition (underline)" Style citations
+
+    // Tests for "American Chemical Society" Style citations
 
 }
