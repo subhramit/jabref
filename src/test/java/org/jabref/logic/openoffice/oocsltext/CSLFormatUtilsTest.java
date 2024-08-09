@@ -129,12 +129,13 @@ public class CSLFormatUtilsTest {
     @MethodSource("rawCitationProvider")
     void ooHTMLTransformFromRawCitationTest(CitationStyle style, String expected) {
         String citation = CitationStyleGenerator.generateCitation(List.of(testEntry), style.getSource(), CitationStyleOutputFormat.HTML, context, bibEntryTypesManager).getFirst();
-        String actual = CSLFormatUtils.transformHTML(citation).trim(); // Trimming is necessary due to spaces, paragraphs, margins and alignment.
+        String actual = CSLFormatUtils.transformHTML(citation);
         assertEquals(expected, actual);
     }
 
     static Stream<Arguments> rawCitationProvider() {
         return Stream.of(
+                // Type:"[1]"
                 Arguments.of(
                         STYLE_LIST.stream().filter(e -> "IEEE".equals(e.getTitle())).findAny().orElse(null),
                         "  \n" +
@@ -142,34 +143,50 @@ public class CSLFormatUtilsTest {
                                 "  \n"
                 ),
 
+                // Type: "1."
                 Arguments.of(
                         STYLE_LIST.stream().filter(e -> "The Journal of Veterinary Medical Science".equals(e.getTitle())).findAny().orElse(null),
-                        "1. Smith, B., Jones, B. and Williams, J. 2016. Title of the test entry. <i>BibTeX Journal</i>. <b>34</b>: 45–67."
+                        "  \n" +
+                                "    1. Smith, B., Jones, B. and Williams, J. 2016. Title of the test entry. <i>BibTeX Journal</i>. <b>34</b>: 45–67.\n" +
+                                "  \n"
                 ),
 
+                // Type:"<BOLD>1."
                 Arguments.of(
                         STYLE_LIST.stream().filter(e -> "Acta Orthopædica Belgica".equals(e.getTitle())).findAny().orElse(null),
-                        "<b>1</b>. <b>Smith  B, Jones  B, Williams  J</b>. Title of the test entry. <i>BibTeX Journal</i> 2016 ; 34 : 45–67."
+                        "  \n" +
+                                "    <b>1</b>. <b>Smith  B, Jones  B, Williams  J</b>. Title of the test entry. <i>BibTeX Journal</i> 2016 ; 34 : 45–67.\n" +
+                                "  \n"
                 ),
 
+                // Type: "1"
                 Arguments.of(
                         STYLE_LIST.stream().filter(e -> "Acta Anaesthesiologica Taiwanica".equals(e.getTitle())).findAny().orElse(null),
-                        "1 Smith Bill, Jones Bob, Williams Jeff. Title of the test entry. <i>BibTeX Journal</i> 2016;<b>34</b>(3):45–67. Doi: 10.1001/bla.blubb."
+                        "  \n" +
+                                "    1 Smith Bill, Jones Bob, Williams Jeff. Title of the test entry. <i>BibTeX Journal</i> 2016;<b>34</b>(3):45–67. Doi: 10.1001/bla.blubb.\n" +
+                                "  \n"
                 ),
 
+                // Type: "(1)"
                 Arguments.of(
                         STYLE_LIST.stream().filter(e -> "American Chemical Society".equals(e.getTitle())).findAny().orElse(null),
-                        "(1) Smith, B.; Jones, B.; Williams, J. Title of the Test Entry. <i>BibTeX Journal</i> <b>2016</b>, <i>34</i> (3), 45–67. https://doi.org/10.1001/bla.blubb."
+                        "  \n" +
+                                "    (1) Smith, B.; Jones, B.; Williams, J. Title of the Test Entry. <i>BibTeX Journal</i> <b>2016</b>, <i>34</i> (3), 45–67. https://doi.org/10.1001/bla.blubb.\n" +
+                                "  \n"
                 ),
 
+                // Type: "1)"
                 Arguments.of(
                         STYLE_LIST.stream().filter(e -> "Chemical and Pharmaceutical Bulletin".equals(e.getTitle())).findAny().orElse(null),
-                        "1) Smith B., Jones B., Williams J., <i>BibTeX Journal</i>, <b>34</b>, 45–67 (2016)."
+                        "  \n" +
+                                "    1) Smith B., Jones B., Williams J., <i>BibTeX Journal</i>, <b>34</b>, 45–67 (2016).\n" +
+                                "  \n"
                 ),
 
+                // Type: "<SUPERSCRIPT>1"
                 Arguments.of(
                         STYLE_LIST.stream().filter(e -> "American Institute of Physics 4th edition".equals(e.getTitle())).findAny().orElse(null),
-                        "<sup>1</sup> B. Smith, B. Jones, and J. Williams, “Title of the test entry,” BibTeX Journal <b>34</b>(3), 45–67 (2016)."
+                        "  <sup>1</sup> B. Smith, B. Jones, and J. Williams, “Title of the test entry,” BibTeX Journal <b>34</b>(3), 45–67 (2016).\n"
                 )
         );
     }
@@ -207,7 +224,7 @@ public class CSLFormatUtilsTest {
     void updateSingleCitationTest(CitationStyle style, String expectedCitation) {
         String citation = CitationStyleGenerator.generateCitation(List.of(testEntry), style.getSource(), CitationStyleOutputFormat.HTML, context, bibEntryTypesManager).getFirst();
         String transformedCitation = CSLFormatUtils.transformHTML(citation);
-        String actual = CSLFormatUtils.updateSingleCitation(transformedCitation, 3).trim(); // Trimming is necessary due to spaces, paragraphs, margins and alignment.
+        String actual = CSLFormatUtils.updateSingleCitation(transformedCitation, 3);
         assertEquals(expectedCitation, actual);
     }
 
@@ -216,43 +233,55 @@ public class CSLFormatUtilsTest {
                 // Type:"[1]"
                 Arguments.of(
                         STYLE_LIST.stream().filter(e -> "IEEE".equals(e.getTitle())).findAny().orElse(null),
-                        "[3] B. Smith, B. Jones, and J. Williams, “Title of the test entry,” <i>BibTeX Journal</i>, vol. 34, no. 3, pp. 45–67, Jul. 2016, doi: 10.1001/bla.blubb."
+                        "  \n" +
+                                "    [3] B. Smith, B. Jones, and J. Williams, “Title of the test entry,” <i>BibTeX Journal</i>, vol. 34, no. 3, pp. 45–67, Jul. 2016, doi: 10.1001/bla.blubb.\n" +
+                                "  \n"
                 ),
 
                 // Type: "1."
                 Arguments.of(
                         STYLE_LIST.stream().filter(e -> "The Journal of Veterinary Medical Science".equals(e.getTitle())).findAny().orElse(null),
-                        "3. Smith, B., Jones, B. and Williams, J. 2016. Title of the test entry. <i>BibTeX Journal</i>. <b>34</b>: 45–67."
+                        "  \n" +
+                                "    3. Smith, B., Jones, B. and Williams, J. 2016. Title of the test entry. <i>BibTeX Journal</i>. <b>34</b>: 45–67.\n" +
+                                "  \n"
                 ),
 
                 // Type:"<BOLD>1."
                 Arguments.of(
                         STYLE_LIST.stream().filter(e -> "Acta Orthopædica Belgica".equals(e.getTitle())).findAny().orElse(null),
-                        "<b>3</b>. <b>Smith  B, Jones  B, Williams  J</b>. Title of the test entry. <i>BibTeX Journal</i> 2016 ; 34 : 45–67."
+                        "  \n" +
+                                "    <b>3</b>. <b>Smith  B, Jones  B, Williams  J</b>. Title of the test entry. <i>BibTeX Journal</i> 2016 ; 34 : 45–67.\n" +
+                                "  \n"
                 ),
 
                 // Type: "1"
                 Arguments.of(
                         STYLE_LIST.stream().filter(e -> "Acta Anaesthesiologica Taiwanica".equals(e.getTitle())).findAny().orElse(null),
-                        "3 Smith Bill, Jones Bob, Williams Jeff. Title of the test entry. <i>BibTeX Journal</i> 2016;<b>34</b>(3):45–67. Doi: 10.1001/bla.blubb."
+                        "  \n" +
+                                "    3 Smith Bill, Jones Bob, Williams Jeff. Title of the test entry. <i>BibTeX Journal</i> 2016;<b>34</b>(3):45–67. Doi: 10.1001/bla.blubb.\n" +
+                                "  \n"
                 ),
 
                 // Type: "(1)"
                 Arguments.of(
                         STYLE_LIST.stream().filter(e -> "American Chemical Society".equals(e.getTitle())).findAny().orElse(null),
-                        "(3) Smith, B.; Jones, B.; Williams, J. Title of the Test Entry. <i>BibTeX Journal</i> <b>2016</b>, <i>34</i> (3), 45–67. https://doi.org/10.1001/bla.blubb."
+                        "  \n" +
+                                "    (3) Smith, B.; Jones, B.; Williams, J. Title of the Test Entry. <i>BibTeX Journal</i> <b>2016</b>, <i>34</i> (3), 45–67. https://doi.org/10.1001/bla.blubb.\n" +
+                                "  \n"
                 ),
 
                 // Type: "1)"
                 Arguments.of(
                         STYLE_LIST.stream().filter(e -> "Chemical and Pharmaceutical Bulletin".equals(e.getTitle())).findAny().orElse(null),
-                        "3) Smith B., Jones B., Williams J., <i>BibTeX Journal</i>, <b>34</b>, 45–67 (2016)."
+                        "  \n" +
+                                "    3) Smith B., Jones B., Williams J., <i>BibTeX Journal</i>, <b>34</b>, 45–67 (2016).\n" +
+                                "  \n"
                 ),
 
                 // Type: "<SUPERSCRIPT>1"
                 Arguments.of(
                         STYLE_LIST.stream().filter(e -> "American Institute of Physics 4th edition".equals(e.getTitle())).findAny().orElse(null),
-                        "<sup>3</sup> B. Smith, B. Jones, and J. Williams, “Title of the test entry,” BibTeX Journal <b>34</b>(3), 45–67 (2016)."
+                        "  <sup>3</sup> B. Smith, B. Jones, and J. Williams, “Title of the test entry,” BibTeX Journal <b>34</b>(3), 45–67 (2016).\n"
                 )
         );
     }
