@@ -26,7 +26,6 @@ import com.sun.star.lang.WrappedTargetException;
 import com.sun.star.text.XTextCursor;
 import com.sun.star.text.XTextDocument;
 import com.sun.star.text.XTextRange;
-import org.apache.commons.text.StringEscapeUtils;
 
 public class CSLCitationOOAdapter {
 
@@ -102,13 +101,11 @@ public class CSLCitationOOAdapter {
             String citation = CitationStyleGenerator.generateCitation(List.of(entry), style, format, bibDatabaseContext, bibEntryTypesManager).getFirst();
             String citationKey = entry.getCitationKey().orElse("");
             int currentNumber = markManager.getCitationNumber(citationKey);
-            System.out.println(citation);
-
             String formattedCitation;
             if (isNumericStyle) {
-                formattedCitation = updateSingleCitation(transformHtml(citation), currentNumber);
+                formattedCitation = CSLFormatUtils.updateSingleCitation(CSLFormatUtils.transformHTML(citation), currentNumber);
             } else {
-                formattedCitation = transformHtml(citation);
+                formattedCitation = CSLFormatUtils.transformHTML(citation);
             }
             OOText ooText = OOFormat.setLocaleNone(OOText.fromString(formattedCitation));
 
@@ -137,7 +134,7 @@ public class CSLCitationOOAdapter {
         // Generate a single in-text citation for a group of entries
         String inTextCitation = CitationStyleGenerator.generateInText(entries, style, format, bibDatabaseContext, bibEntryTypesManager).getText();
 
-        String formattedCitation = transformHtml(inTextCitation);
+        String formattedCitation = CSLFormatUtils.transformHTML(inTextCitation);
 
         if (isNumericStyle) {
             formattedCitation = updateMultipleCitations(formattedCitation, entries);
@@ -165,7 +162,7 @@ public class CSLCitationOOAdapter {
         while (iterator.hasNext()) {
             BibEntry currentEntry = iterator.next();
             String inTextCitation = CitationStyleGenerator.generateInText(List.of(currentEntry), style, format, bibDatabaseContext, bibEntryTypesManager).getText();
-            String formattedCitation = transformHtml(inTextCitation);
+            String formattedCitation = CSLFormatUtils.transformHTML(inTextCitation);
             if (isNumericStyle) {
                 formattedCitation = updateMultipleCitations(formattedCitation, List.of(currentEntry));
             } else {
@@ -261,98 +258,6 @@ public class CSLCitationOOAdapter {
         }
         matcher.appendTail(sb);
         return sb.toString();
-    }
-
-    private void writeCitation(XTextDocument doc, XTextCursor cursor, BibEntry entry, String citation) throws Exception {
-        String citationKey = entry.getCitationKey().orElse("");
-        int currentNumber = markManager.getCitationNumber(citationKey);
-
-        CSLReferenceMark mark = markManager.createReferenceMark(entry);
-        String formattedCitation;
-        if (isNumericStyle) {
-            formattedCitation = updateSingleCitation(transformHtml(citation), currentNumber);
-        } else {
-            formattedCitation = transformHtml(citation);
-        }
-        OOText ooText = OOFormat.setLocaleNone(OOText.fromString(formattedCitation));
-
-        // Insert the citation text wrapped in a reference mark
-        mark.insertReferenceIntoOO(doc, cursor, ooText, false, false, true);
-
-        // Move the cursor to the end of the inserted text
-        cursor.collapseToEnd();
-    }
-
-    private String updateSingleCitation(String citation, int currentNumber) {
-        Pattern pattern = Pattern.compile("(\\[|\\()?(\\d+)(\\]|\\))?(\\.)?\\s*");
-        Matcher matcher = pattern.matcher(citation);
-        StringBuilder sb = new StringBuilder();
-        boolean numberReplaced = false;
-
-        while (matcher.find()) {
-            if (!numberReplaced) {
-                String prefix = matcher.group(1) != null ? matcher.group(1) : "";
-                String suffix = matcher.group(3) != null ? matcher.group(3) : "";
-                String dot = matcher.group(4) != null ? "." : "";
-
-                String replacement;
-                if (prefix.isEmpty() && suffix.isEmpty()) {
-                    replacement = currentNumber + dot + " ";
-                } else {
-                    replacement = prefix + currentNumber + suffix + dot + " ";
-                }
-
-                matcher.appendReplacement(sb, Matcher.quoteReplacement(replacement));
-                numberReplaced = true;
-            } else {
-                // If we've already replaced the number, keep any subsequent numbers as they are
-                matcher.appendReplacement(sb, matcher.group());
-            }
-        }
-        matcher.appendTail(sb);
-        return sb.toString();
-    }
-
-    /**
-     * Transforms provided HTML into a format that can be fully parsed by OOTextIntoOO.write(...)
-     * The transformed HTML can be used for inserting into a LibreOffice document
-     * Context: The HTML produced by CitationStyleGenerator.generateCitation(...) is not directly (completely) parsable by OOTextIntoOO.write(...)
-     * For more details, read the documentation of the write(...) method in the {@link OOTextIntoOO} class.
-     * <a href="https://devdocs.jabref.org/code-howtos/openoffice/code-reorganization.html">Additional Information</a>.
-     *
-     * @param html The HTML string to be transformed into OO-write ready HTML.
-     * @return The formatted html string
-     */
-    private String transformHtml(String html) {
-        // Initial clean up of escaped characters
-        html = StringEscapeUtils.unescapeHtml4(html);
-
-        // Handle margins (spaces between citation number and text)
-        html = html.replaceAll("<div class=\"csl-left-margin\">(.*?)</div><div class=\"csl-right-inline\">(.*?)</div>", "$1 $2");
-
-        // Remove unsupported tags
-        html = html.replaceAll("<div[^>]*>", "");
-        html = html.replace("</div>", "");
-
-        // Remove unsupported links
-        html = html.replaceAll("<a[^>]*>", "");
-        html = html.replace("</a>", "");
-
-        // Replace span tags with inline styles for bold
-        html = html.replaceAll("<span style=\"font-weight: ?bold;?\">(.*?)</span>", "<b>$1</b>");
-
-        // Replace span tags with inline styles for italic
-        html = html.replaceAll("<span style=\"font-style: ?italic;?\">(.*?)</span>", "<i>$1</i>");
-
-        // Replace span tags with inline styles for underline
-        html = html.replaceAll("<span style=\"text-decoration: ?underline;?\">(.*?)</span>", "<u>$1</u>");
-
-        html = html.replaceAll("<span style=\"font-variant: ?small-caps;?\">(.*?)</span>", "<smallcaps>$1</smallcaps>");
-
-        // Clean up any remaining span tags
-        html = html.replaceAll("</?span[^>]*>", "");
-
-        return html;
     }
 
     public boolean isCitedEntry(BibEntry entry) {
