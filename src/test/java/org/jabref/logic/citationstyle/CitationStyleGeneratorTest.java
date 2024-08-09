@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import org.jabref.logic.l10n.Localization;
-import org.jabref.logic.openoffice.oocsltext.CSLFormatUtils;
 import org.jabref.logic.util.TestEntry;
 import org.jabref.model.database.BibDatabase;
 import org.jabref.model.database.BibDatabaseContext;
@@ -580,9 +579,6 @@ class CitationStyleGeneratorTest {
                 CitationStyleOutputFormat.TEXT,
                 context,
                 bibEntryTypesManager).getFirst();
-        CitationStyle style = styleList.stream().filter(e -> "IEEE".equals(e.getTitle())).findAny().orElse(null);
-        String ieee = CitationStyleGenerator.generateCitation(List.of(testEntry), style.getSource(), CitationStyleOutputFormat.HTML, context, bibEntryTypesManager).getFirst();
-        System.out.println(CSLFormatUtils.transformHTML(ieee));
         assertEquals(expected, citation);
     }
 }
