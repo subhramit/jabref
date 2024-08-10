@@ -10,8 +10,11 @@ import org.jabref.logic.citationstyle.CitationStyleOutputFormat;
 import org.jabref.logic.util.TestEntry;
 import org.jabref.model.database.BibDatabase;
 import org.jabref.model.database.BibDatabaseContext;
+import org.jabref.model.database.BibDatabaseMode;
 import org.jabref.model.entry.BibEntry;
 import org.jabref.model.entry.BibEntryTypesManager;
+import org.jabref.model.entry.field.StandardField;
+import org.jabref.model.entry.types.StandardEntryType;
 
 import de.undercouch.citeproc.output.Citation;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -22,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class CSLFormatUtilsTest {
     private static final List<CitationStyle> STYLE_LIST = CitationStyle.discoverCitationStyles();
+    private static final CitationStyleOutputFormat OUTPUT_FORMAT = CitationStyleOutputFormat.HTML;
     private final BibEntry testEntry = TestEntry.getTestEntry();
     private final BibDatabaseContext context = new BibDatabaseContext(new BibDatabase(List.of(TestEntry.getTestEntry())));
     private final BibEntryTypesManager bibEntryTypesManager = new BibEntryTypesManager();
@@ -143,7 +147,7 @@ public class CSLFormatUtilsTest {
     @ParameterizedTest
     @MethodSource("rawCitationProvider")
     void ooHTMLTransformFromRawCitation(CitationStyle style, String expected) {
-        String citation = CitationStyleGenerator.generateCitation(List.of(testEntry), style.getSource(), CitationStyleOutputFormat.HTML, context, bibEntryTypesManager).getFirst();
+        String citation = CitationStyleGenerator.generateCitation(List.of(testEntry), style.getSource(), OUTPUT_FORMAT, context, bibEntryTypesManager).getFirst();
         String actual = CSLFormatUtils.transformHTML(citation);
         assertEquals(expected, actual);
     }
@@ -269,10 +273,9 @@ public class CSLFormatUtilsTest {
     @ParameterizedTest
     @MethodSource("rawInTextCitationProvider")
     void ooHTMLTransformFromRawInTextCitation(CitationStyle style, String expected) throws IOException {
-        Citation citation = CitationStyleGenerator.generateInText(List.of(testEntry), style.getSource(), CitationStyleOutputFormat.HTML, context, bibEntryTypesManager);
-        String inTextCitation = citation.getText();
-        System.out.println(inTextCitation);
-        String actual = CSLFormatUtils.transformHTML(inTextCitation);
+        Citation citation = CitationStyleGenerator.generateInText(List.of(testEntry), style.getSource(), OUTPUT_FORMAT, context, bibEntryTypesManager);
+        String inTextCitationText = citation.getText();
+        String actual = CSLFormatUtils.transformHTML(inTextCitationText);
         assertEquals(expected, actual);
     }
 
@@ -368,6 +371,124 @@ public class CSLFormatUtilsTest {
         );
     }
 
+    @ParameterizedTest
+    @MethodSource("rawInTextCitationProviderMultipleEntries")
+    void ooHTMLTransformFromRawInTextCitationWithMultipleEntries(CitationStyle style, String expected) throws IOException {
+        BibEntry entry1 = new BibEntry(StandardEntryType.Article)
+                .withField(StandardField.AUTHOR, "Garcia, Maria and Lee, David")
+                .withField(StandardField.JOURNAL, "International Review of Physics")
+                .withField(StandardField.NUMBER, "6")
+                .withField(StandardField.PAGES, "789--810")
+                .withField(StandardField.TITLE, "Quantum Entanglement in Superconductors")
+                .withField(StandardField.VOLUME, "28")
+                .withField(StandardField.ISSUE, "3")
+                .withField(StandardField.YEAR, "2021")
+                .withCitationKey("Garcia_2021");
+
+        BibEntry entry2 = new BibEntry(StandardEntryType.Article)
+                .withField(StandardField.AUTHOR, "Smith, John and Johnson, Emily")
+                .withField(StandardField.JOURNAL, "Journal of Computer Science")
+                .withField(StandardField.NUMBER, "4")
+                .withField(StandardField.PAGES, "101--120")
+                .withField(StandardField.TITLE, "A Study on Machine Learning Algorithms")
+                .withField(StandardField.VOLUME, "15")
+                .withField(StandardField.ISSUE, "2")
+                .withField(StandardField.YEAR, "2020")
+                .withCitationKey("Smith_2020");
+
+        List<BibEntry> entries = List.of(entry1, entry2);
+        BibDatabaseContext context = new BibDatabaseContext(new BibDatabase(entries));
+        context.setMode(BibDatabaseMode.BIBLATEX);
+        Citation citation = CitationStyleGenerator.generateInText(entries, style.getSource(), OUTPUT_FORMAT, context, bibEntryTypesManager);
+        String inTextCitationText = citation.getText();
+        String actual = CSLFormatUtils.transformHTML(inTextCitationText);
+        assertEquals(expected, actual);
+    }
+
+    static Stream<Arguments> rawInTextCitationProviderMultipleEntries() {
+        return Stream.of(
+                Arguments.of(
+                        STYLE_LIST.stream().filter(e -> "American Psychological Association 7th edition".equals(e.getTitle())).findAny().orElse(null),
+                        "(Garcia & Lee, 2021; Smith & Johnson, 2020)"
+                ),
+
+                Arguments.of(
+                        STYLE_LIST.stream().filter(e -> "IEEE".equals(e.getTitle())).findAny().orElse(null),
+                        "[1], [2]"
+                ),
+
+                Arguments.of(
+                        STYLE_LIST.stream().filter(e -> "Springer - Lecture Notes in Computer Science".equals(e.getTitle())).findAny().orElse(null),
+                        "[1, 2]"
+                ),
+
+                Arguments.of(
+                        STYLE_LIST.stream().filter(e -> "Chicago Manual of Style 17th edition (author-date)".equals(e.getTitle())).findAny().orElse(null),
+                        "(Garcia and Lee 2021; Smith and Johnson 2020)"
+                ),
+
+                Arguments.of(
+                        STYLE_LIST.stream().filter(e -> "Vancouver".equals(e.getTitle())).findAny().orElse(null),
+                        "(1,2)"
+                ),
+
+                Arguments.of(
+                        STYLE_LIST.stream().filter(e -> "Nature".equals(e.getTitle())).findAny().orElse(null),
+                        "<sup>1,2</sup>"
+                ),
+
+                Arguments.of(
+                        STYLE_LIST.stream().filter(e -> "American Medical Association 11th edition".equals(e.getTitle())).findAny().orElse(null),
+                        "<sup>1,2</sup>"
+                ),
+
+                Arguments.of(
+                        STYLE_LIST.stream().filter(e -> "De Montfort University - Harvard".equals(e.getTitle())).findAny().orElse(null),
+                        "(Garcia, Lee, 2021; Smith, Johnson, 2020)"
+                ),
+
+                Arguments.of(
+                        STYLE_LIST.stream().filter(e -> "Modern Language Association 7th edition (underline)".equals(e.getTitle())).findAny().orElse(null),
+                        "(Garcia & Lee; Smith & Johnson)"
+                ),
+
+                Arguments.of(
+                        STYLE_LIST.stream().filter(e -> "Histoire & Mesure (Français)".equals(e.getTitle())).findAny().orElse(null),
+                        "Garcia, M. and D. Lee, 2021 ; Smith, J. and E. Johnson, 2020."
+                ),
+
+                Arguments.of(
+                        STYLE_LIST.stream().filter(e -> "The Journal of Veterinary Medical Science".equals(e.getTitle())).findAny().orElse(null),
+                        "[1, 2]"
+                ),
+
+                Arguments.of(
+                        STYLE_LIST.stream().filter(e -> "Acta Orthopædica Belgica".equals(e.getTitle())).findAny().orElse(null),
+                        "(<i>1,2</i>)"
+                ),
+
+                Arguments.of(
+                        STYLE_LIST.stream().filter(e -> "Acta Anaesthesiologica Taiwanica".equals(e.getTitle())).findAny().orElse(null),
+                        "<sup>1,2</sup>"
+                ),
+
+                Arguments.of(
+                        STYLE_LIST.stream().filter(e -> "American Chemical Society".equals(e.getTitle())).findAny().orElse(null),
+                        "<sup>1,2</sup>"
+                ),
+
+                Arguments.of(
+                        STYLE_LIST.stream().filter(e -> "Chemical and Pharmaceutical Bulletin".equals(e.getTitle())).findAny().orElse(null),
+                        "<sup>1,2</sup>)"
+                ),
+
+                Arguments.of(
+                        STYLE_LIST.stream().filter(e -> "American Institute of Physics 4th edition".equals(e.getTitle())).findAny().orElse(null),
+                        "<sup>1,2</sup>"
+                )
+        );
+    }
+
     /**
      * Test for modifying the number (index) of a numeric citation.
      * The numeric index should change to the provided "current number".
@@ -382,7 +503,7 @@ public class CSLFormatUtilsTest {
     @ParameterizedTest
     @MethodSource("rawNumericCitationProvider")
     void updateSingleNumericCitation(CitationStyle style, String expectedCitation) {
-        String citation = CitationStyleGenerator.generateCitation(List.of(testEntry), style.getSource(), CitationStyleOutputFormat.HTML, context, bibEntryTypesManager).getFirst();
+        String citation = CitationStyleGenerator.generateCitation(List.of(testEntry), style.getSource(), OUTPUT_FORMAT, context, bibEntryTypesManager).getFirst();
         String transformedCitation = CSLFormatUtils.transformHTML(citation);
         String actual = CSLFormatUtils.updateSingleCitation(transformedCitation, 3);
         assertEquals(expectedCitation, actual);

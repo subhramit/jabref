@@ -51,7 +51,6 @@ public class CSLFormatUtils {
 
         // Clean up any remaining span tags
         html = html.replaceAll("</?span[^>]*>", "");
-        System.out.println(html);
 
         return html;
     }

@@ -1,5 +1,6 @@
 package org.jabref.logic.citationstyle;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -13,6 +14,7 @@ import org.jabref.model.entry.BibEntryTypesManager;
 import org.jabref.model.entry.field.StandardField;
 import org.jabref.model.entry.types.StandardEntryType;
 
+import de.undercouch.citeproc.output.Citation;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -53,6 +55,20 @@ class CitationStyleGeneratorTest {
                 + "Smith, B., Jones, B., &amp; Williams, J. (2016). Title of the test entry. <span style=\"font-style: italic\">BibTeX Journal</span>, <span style=\"font-style: italic\">34</span>(3), 45&ndash;67. https://doi.org/10.1001/bla.blubb"
                 + "</div>\n"
                 + "";
+
+        assertEquals(expected, citation);
+    }
+
+    // The below test, as of now, fails due to citeproc-java returning an empty citation.
+    @Test
+    void din1502AlphanumericInTextCitation() throws IOException {
+        context.setMode(BibDatabaseMode.BIBLATEX);
+        CitationStyle style = styleList.stream().filter(e -> "DIN 1505-2 (alphanumeric, Deutsch) - standard superseded by ISO-690".equals(e.getTitle())).findAny().orElse(null);
+        Citation citation = CitationStyleGenerator.generateInText(List.of(testEntry), style.getSource(), CitationStyleOutputFormat.HTML, context, bibEntryTypesManager);
+        String inTextCitationText = citation.getText();
+
+        // if the apa-7th-citation.csl citation style changes this has to be modified
+        String expected = "[Smit2016]";
 
         assertEquals(expected, citation);
     }
