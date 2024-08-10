@@ -17,6 +17,7 @@ import org.jabref.model.entry.field.StandardField;
 import org.jabref.model.entry.types.StandardEntryType;
 
 import de.undercouch.citeproc.output.Citation;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -565,5 +566,42 @@ public class CSLFormatUtilsTest {
                         "  <sup>3</sup> B. Smith, B. Jones, and J. Williams, “Title of the test entry,” BibTeX Journal <b>34</b>(3), 45–67 (2016).\n"
                 )
         );
+    }
+
+    // Tests for extractYear()
+
+    @Test
+    public void testExtractYearWithValidCitation() {
+        String citation = "Smith, 2023. The Art of Testing";
+        String result = CSLFormatUtils.extractYear(citation);
+        assertEquals("S2023. The Art of Testing", result);
+    }
+
+    @Test
+    public void testExtractYearWithNoYear() {
+        String citation = "Smith. The Art of Testing";
+        String result = CSLFormatUtils.extractYear(citation);
+        assertEquals(citation, result);
+    }
+
+    @Test
+    public void testExtractYearWithYearOnly() {
+        String citation = "2023";
+        String result = CSLFormatUtils.extractYear(citation);
+        assertEquals(citation, result);
+    }
+
+    @Test
+    public void testExtractYearWithMultipleYears() {
+        String citation = "Johnson, 2022, 2023. Multiple Years Study";
+        String result = CSLFormatUtils.extractYear(citation);
+        assertEquals("J2022, 2023. Multiple Years Study", result);
+    }
+
+    @Test
+    public void testExtractYearWithSpecialCharacters() {
+        String citation = "O'Brien, 2021. Special Characters' Study";
+        String result = CSLFormatUtils.extractYear(citation);
+        assertEquals("O2021. Special Characters' Study", result);
     }
 }

@@ -10,7 +10,6 @@ import java.util.regex.Pattern;
 import org.jabref.logic.citationkeypattern.BracketedPattern;
 import org.jabref.logic.citationstyle.CitationStyle;
 import org.jabref.logic.citationstyle.CitationStyleGenerator;
-import org.jabref.logic.citationstyle.CitationStyleOutputFormat;
 import org.jabref.model.database.BibDatabaseContext;
 import org.jabref.model.entry.AuthorList;
 import org.jabref.model.entry.BibEntry;
@@ -27,15 +26,12 @@ import com.sun.star.text.XTextCursor;
 import com.sun.star.text.XTextDocument;
 import com.sun.star.text.XTextRange;
 
+import static org.jabref.logic.openoffice.oocsltext.CSLFormatUtils.DEFAULT_BIBLIOGRAPHY_HEADER_PARAGRAPH_FORMAT;
+import static org.jabref.logic.openoffice.oocsltext.CSLFormatUtils.DEFAULT_BIBLIOGRAPHY_TITLE;
+import static org.jabref.logic.openoffice.oocsltext.CSLFormatUtils.OUTPUT_FORMAT;
+
 public class CSLCitationOOAdapter {
 
-    private static final Pattern YEAR_IN_CITATION_PATTERN = Pattern.compile("(.).*?, (\\d{4}.*)");
-    public static final String[] PREFIXES = {"JABREF_", "CSL_"};
-    // TODO: These are static final fields right now, should add the functionality to let user select these and store them in preferences.
-    public static final String BIBLIOGRAPHY_TITLE = "References";
-    public static final String BIBLIOGRAPHY_HEADER_PARAGRAPH_FORMAT = "Heading 2";
-
-    private final CitationStyleOutputFormat format = CitationStyleOutputFormat.HTML;
     private final XTextDocument document;
     private final CSLReferenceMarkManager markManager;
     private boolean isNumericStyle = false;
@@ -87,7 +83,7 @@ public class CSLCitationOOAdapter {
 //        UnoTextSection.create(annotation);
 
         // antalk2's derivative
-        OOText title = OOFormat.paragraph(OOText.fromString(BIBLIOGRAPHY_TITLE), BIBLIOGRAPHY_HEADER_PARAGRAPH_FORMAT);
+        OOText title = OOFormat.paragraph(OOText.fromString(DEFAULT_BIBLIOGRAPHY_TITLE), DEFAULT_BIBLIOGRAPHY_HEADER_PARAGRAPH_FORMAT);
         OOTextIntoOO.write(document, cursor, OOText.fromString(title.toString()));
         OOText ooBreak = OOFormat.paragraph(OOText.fromString(""), "Body Text");
         OOTextIntoOO.write(document, cursor, ooBreak);
@@ -98,7 +94,7 @@ public class CSLCitationOOAdapter {
         // Sort entries based on their order of appearance in the document
         entries.sort(Comparator.comparingInt(entry -> markManager.getCitationNumber(entry.getCitationKey().orElse(""))));
         for (BibEntry entry : entries) {
-            String citation = CitationStyleGenerator.generateCitation(List.of(entry), style, format, bibDatabaseContext, bibEntryTypesManager).getFirst();
+            String citation = CitationStyleGenerator.generateCitation(List.of(entry), style, OUTPUT_FORMAT, bibDatabaseContext, bibEntryTypesManager).getFirst();
             String citationKey = entry.getCitationKey().orElse("");
             int currentNumber = markManager.getCitationNumber(citationKey);
             String formattedCitation;
@@ -132,7 +128,7 @@ public class CSLCitationOOAdapter {
         isNumericStyle = selectedStyle.isNumericStyle();
 
         // Generate a single in-text citation for a group of entries
-        String inTextCitation = CitationStyleGenerator.generateInText(entries, style, format, bibDatabaseContext, bibEntryTypesManager).getText();
+        String inTextCitation = CitationStyleGenerator.generateInText(entries, style, OUTPUT_FORMAT, bibDatabaseContext, bibEntryTypesManager).getText();
         String formattedCitation = CSLFormatUtils.transformHTML(inTextCitation);
 
         if (isNumericStyle) {
@@ -160,12 +156,12 @@ public class CSLCitationOOAdapter {
         Iterator<BibEntry> iterator = entries.iterator();
         while (iterator.hasNext()) {
             BibEntry currentEntry = iterator.next();
-            String inTextCitation = CitationStyleGenerator.generateInText(List.of(currentEntry), style, format, bibDatabaseContext, bibEntryTypesManager).getText();
+            String inTextCitation = CitationStyleGenerator.generateInText(List.of(currentEntry), style, OUTPUT_FORMAT, bibDatabaseContext, bibEntryTypesManager).getText();
             String formattedCitation = CSLFormatUtils.transformHTML(inTextCitation);
             if (isNumericStyle) {
                 formattedCitation = updateMultipleCitations(formattedCitation, List.of(currentEntry));
             } else {
-                formattedCitation = extractYear(formattedCitation);
+                formattedCitation = CSLFormatUtils.extractYear(formattedCitation);
             }
             String prefix = currentEntry.getResolvedFieldOrAlias(StandardField.AUTHOR, bibDatabaseContext.getDatabase())
                                         .map(authors -> AuthorList.parse(authors))
@@ -180,14 +176,6 @@ public class CSLCitationOOAdapter {
             insertMultipleReferenceMarks(cursor, List.of(currentEntry), ooText);
             cursor.collapseToEnd();
         }
-    }
-
-    private String extractYear(String formattedCitation) {
-        Matcher matcher = YEAR_IN_CITATION_PATTERN.matcher(formattedCitation);
-        if (matcher.find()) {
-            return matcher.group(1) + matcher.group(2);
-        }
-        return formattedCitation;
     }
 
     public void insertEmpty(XTextCursor cursor, List<BibEntry> entries)
