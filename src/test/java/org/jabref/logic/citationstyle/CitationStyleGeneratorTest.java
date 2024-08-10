@@ -67,10 +67,9 @@ class CitationStyleGeneratorTest {
         Citation citation = CitationStyleGenerator.generateInText(List.of(testEntry), style.getSource(), CitationStyleOutputFormat.HTML, context, bibEntryTypesManager);
         String inTextCitationText = citation.getText();
 
-        // if the apa-7th-citation.csl citation style changes this has to be modified
         String expected = "[Smit2016]";
 
-        assertEquals(expected, citation);
+        assertEquals(expected, inTextCitationText);
     }
 
     @Test
