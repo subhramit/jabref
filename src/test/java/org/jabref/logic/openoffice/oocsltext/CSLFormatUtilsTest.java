@@ -45,7 +45,7 @@ public class CSLFormatUtilsTest {
 
     static Stream<Arguments> rawHTMLProvider() {
         return Stream.of(
-                // First three are test cases for unescaping HTML entities
+                // First three are general test cases for unescaping HTML entities
 
                 // Ampersand (&amp entity)
                 Arguments.of(
@@ -568,7 +568,7 @@ public class CSLFormatUtilsTest {
         );
     }
 
-    // Tests for extractYear()
+    // Tests for extractYear()xtractY
 
     @Test
     public void testExtractYearWithValidCitation() {
