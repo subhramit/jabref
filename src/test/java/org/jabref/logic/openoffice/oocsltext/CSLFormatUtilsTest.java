@@ -15,6 +15,7 @@ import org.jabref.model.entry.BibEntry;
 import org.jabref.model.entry.BibEntryTypesManager;
 import org.jabref.model.entry.field.StandardField;
 import org.jabref.model.entry.types.StandardEntryType;
+import org.jabref.model.openoffice.ootext.OOText;
 
 import de.undercouch.citeproc.output.Citation;
 import org.junit.jupiter.api.Test;
@@ -135,6 +136,16 @@ public class CSLFormatUtilsTest {
                                 "https://doi.org/10.1000/example"
                 )
         );
+    }
+
+    @ParameterizedTest
+    @MethodSource("rawHTMLProvider")
+    void ooTextTest(String input, String expected) {
+        String actual = CSLFormatUtils.transformHTML(input);
+        OOText ooText = OOText.fromString(actual);
+        assertEquals(OOText.fromString(expected), ooText);
+        assertEquals(OOText.fromString(expected).toString(), ooText.toString());
+        assertEquals(expected, ooText.toString());
     }
 
     /**
@@ -271,15 +282,6 @@ public class CSLFormatUtilsTest {
         );
     }
 
-    @ParameterizedTest
-    @MethodSource("rawInTextCitationProvider")
-    void ooHTMLTransformFromRawInTextCitation(CitationStyle style, String expected) throws IOException {
-        Citation citation = CitationStyleGenerator.generateInText(List.of(testEntry), style.getSource(), OUTPUT_FORMAT, context, bibEntryTypesManager);
-        String inTextCitationText = citation.getText();
-        String actual = CSLFormatUtils.transformHTML(inTextCitationText);
-        assertEquals(expected, actual);
-    }
-
     static Stream<Arguments> rawInTextCitationProvider() {
         return Stream.of(
 
@@ -370,6 +372,16 @@ public class CSLFormatUtilsTest {
 //                        "[Smit2016]"
 //                )
         );
+    }
+
+    @ParameterizedTest
+    @MethodSource("rawInTextCitationProvider")
+    void ooRoundTrip(CitationStyle style, String expected) throws IOException {
+        Citation citation = CitationStyleGenerator.generateInText(List.of(testEntry), style.getSource(), OUTPUT_FORMAT, context, bibEntryTypesManager);
+        String inTextCitationText = citation.getText();
+        String actual = CSLFormatUtils.transformHTML(inTextCitationText);
+        OOText ooText = OOText.fromString(actual);
+        assertEquals(OOText.fromString(expected), ooText);
     }
 
     @ParameterizedTest
