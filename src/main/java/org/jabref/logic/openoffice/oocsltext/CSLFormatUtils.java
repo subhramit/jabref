@@ -1,9 +1,17 @@
 package org.jabref.logic.openoffice.oocsltext;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.jabref.logic.citationstyle.CitationStyle;
 import org.jabref.logic.citationstyle.CitationStyleOutputFormat;
+import org.jabref.model.database.BibDatabaseContext;
+import org.jabref.model.entry.Author;
+import org.jabref.model.entry.AuthorList;
+import org.jabref.model.entry.BibEntry;
+import org.jabref.model.entry.field.StandardField;
 import org.jabref.model.openoffice.ootext.OOTextIntoOO;
 
 import org.apache.commons.text.StringEscapeUtils;
@@ -112,5 +120,78 @@ public class CSLFormatUtils {
             return matcher.group(1) + matcher.group(2);
         }
         return formattedCitation;
+    }
+
+    private String generateAlphanumericCitation(List<BibEntry> entries, BibDatabaseContext bibDatabaseContext) {
+        StringBuilder citation = new StringBuilder("[");
+        for (int i = 0; i < entries.size(); i++) {
+            BibEntry entry = entries.get(i);
+            Optional<String> author = entry.getResolvedFieldOrAlias(StandardField.AUTHOR, bibDatabaseContext.getDatabase());
+            Optional<String> year = entry.getResolvedFieldOrAlias(StandardField.YEAR, bibDatabaseContext.getDatabase());
+
+            if (author.isPresent() && year.isPresent()) {
+                AuthorList authorList = AuthorList.parse(author.get());
+                String alphaKey = authorsAlpha(authorList);
+
+                // Extract last two digits of the year
+                String shortYear = year.get().length() >= 2 ?
+                        year.get().substring(year.get().length() - 2) :
+                        year.get();
+
+                citation.append(alphaKey).append(shortYear);
+            } else {
+                citation.append(entry.getCitationKey().orElse(""));
+            }
+
+            if (i < entries.size() - 1) {
+                citation.append("; ");
+            }
+        }
+        citation.append("]");
+        return citation.toString();
+    }
+
+    public static String authorsAlpha(AuthorList authorList) {
+        StringBuilder alphaStyle = new StringBuilder();
+        int maxAuthors;
+        final boolean maxAuthorsExceeded;
+        if (authorList.getNumberOfAuthors() <= MAX_ALPHA_AUTHORS) {
+            maxAuthors = authorList.getNumberOfAuthors();
+            maxAuthorsExceeded = false;
+        } else {
+            maxAuthors = MAX_ALPHA_AUTHORS;
+            maxAuthorsExceeded = true;
+        }
+
+        if (authorList.getNumberOfAuthors() == 1) {
+            String[] firstAuthor = authorList.getAuthor(0).getNamePrefixAndFamilyName()
+                                             .replaceAll("\\s+", " ").trim().split(" ");
+            // take first letter of any "prefixes" (e.g. van der Aalst -> vd)
+            for (int j = 0; j < (firstAuthor.length - 1); j++) {
+                alphaStyle.append(firstAuthor[j], 0, 1);
+            }
+            // append last part of last name completely
+            alphaStyle.append(firstAuthor[firstAuthor.length - 1], 0,
+                    Math.min(4, firstAuthor[firstAuthor.length - 1].length()));
+        } else {
+            boolean andOthersPresent = authorList.getAuthor(maxAuthors - 1).equals(Author.OTHERS);
+            if (andOthersPresent) {
+                maxAuthors--;
+            }
+            List<String> vonAndLastNames = authorList.getAuthors().stream()
+                                                     .limit(maxAuthors)
+                                                     .map(Author::getNamePrefixAndFamilyName)
+                                                     .toList();
+            for (String vonAndLast : vonAndLastNames) {
+                // replace all whitespaces by " "
+                // split the lastname at " "
+                String[] nameParts = vonAndLast.replaceAll("\\s+", " ").trim().split(" ");
+                for (String part : nameParts) {
+                    // use first character of each part of lastname
+                    alphaStyle.append(part, 0, 1);
+                }
+            }
+        }
+        return alphaStyle.toString();
     }
 }
