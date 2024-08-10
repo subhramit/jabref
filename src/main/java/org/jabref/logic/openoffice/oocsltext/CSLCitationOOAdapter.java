@@ -35,6 +35,7 @@ public class CSLCitationOOAdapter {
     private final XTextDocument document;
     private final CSLReferenceMarkManager markManager;
     private boolean isNumericStyle = false;
+    private static final Pattern YEAR_IN_CITATION_PATTERN = Pattern.compile("(.)(.*), (\\d{4}.*)");
 
     public CSLCitationOOAdapter(XTextDocument doc) throws Exception {
         this.document = doc;
@@ -126,9 +127,15 @@ public class CSLCitationOOAdapter {
     public void insertCitation(XTextCursor cursor, CitationStyle selectedStyle, List<BibEntry> entries, BibDatabaseContext bibDatabaseContext, BibEntryTypesManager bibEntryTypesManager) throws Exception {
         String style = selectedStyle.getSource();
         isNumericStyle = selectedStyle.isNumericStyle();
+        boolean isAlphanumeric = isAlphanumericStyle(selectedStyle);
 
-        // Generate a single in-text citation for a group of entries
-        String inTextCitation = CitationStyleGenerator.generateInText(entries, style, OUTPUT_FORMAT, bibDatabaseContext, bibEntryTypesManager).getText();
+        String inTextCitation;
+        if (isAlphanumeric) {
+            inTextCitation = CSLFormatUtils.generateAlphanumericCitation(entries, bibDatabaseContext);
+        } else {
+            inTextCitation = CitationStyleGenerator.generateInText(entries, style, OUTPUT_FORMAT, bibDatabaseContext, bibEntryTypesManager).getText();
+        }
+
         String formattedCitation = CSLFormatUtils.transformHTML(inTextCitation);
 
         if (isNumericStyle) {
@@ -150,32 +157,54 @@ public class CSLCitationOOAdapter {
             throws Exception {
         String style = selectedStyle.getSource();
         isNumericStyle = selectedStyle.isNumericStyle();
-
-        boolean twoEntries = entries.size() == 2;
+        boolean isAlphanumeric = isAlphanumericStyle(selectedStyle);
 
         Iterator<BibEntry> iterator = entries.iterator();
         while (iterator.hasNext()) {
             BibEntry currentEntry = iterator.next();
-            String inTextCitation = CitationStyleGenerator.generateInText(List.of(currentEntry), style, OUTPUT_FORMAT, bibDatabaseContext, bibEntryTypesManager).getText();
+            String inTextCitation;
+            if (isAlphanumeric) {
+                // Generate the alphanumeric citation
+                inTextCitation = CSLFormatUtils.generateAlphanumericCitation(List.of(currentEntry), bibDatabaseContext);
+                // Get the author's name
+                String authorName = currentEntry.getResolvedFieldOrAlias(StandardField.AUTHOR, bibDatabaseContext.getDatabase())
+                                                .map(authors -> AuthorList.parse(authors))
+                                                .map(list -> BracketedPattern.joinAuthorsOnLastName(list, 1, "", " et al."))
+                                                .orElse("");
+                // Combine author name with the citation
+                inTextCitation = authorName + " " + inTextCitation;
+            } else {
+                inTextCitation = CitationStyleGenerator.generateInText(List.of(currentEntry), style, OUTPUT_FORMAT, bibDatabaseContext, bibEntryTypesManager).getText();
+            }
             String formattedCitation = CSLFormatUtils.transformHTML(inTextCitation);
+            String finalText;
             if (isNumericStyle) {
                 formattedCitation = updateMultipleCitations(formattedCitation, List.of(currentEntry));
+                String prefix = currentEntry.getResolvedFieldOrAlias(StandardField.AUTHOR, bibDatabaseContext.getDatabase())
+                                            .map(authors -> AuthorList.parse(authors))
+                                            .map(list -> BracketedPattern.joinAuthorsOnLastName(list, 1, "", " et al.") + " ")
+                                            .orElse("");
+                finalText = prefix + formattedCitation;
+            } else if (isAlphanumeric) {
+                finalText = formattedCitation;
             } else {
-                formattedCitation = CSLFormatUtils.extractYear(formattedCitation);
+                finalText = changeToInText(formattedCitation);
             }
-            String prefix = currentEntry.getResolvedFieldOrAlias(StandardField.AUTHOR, bibDatabaseContext.getDatabase())
-                                        .map(authors -> AuthorList.parse(authors))
-                                        .map(list -> BracketedPattern.joinAuthorsOnLastName(list, 1, "", " et al.") + " ")
-                                        .orElse("");
-            String finalText = prefix + formattedCitation;
             if (iterator.hasNext()) {
                 finalText += ",";
-                // The next space is inserted somehow magically by other routines. Therefore, we do not add a space here.
             }
             OOText ooText = OOFormat.setLocaleNone(OOText.fromString(finalText));
             insertMultipleReferenceMarks(cursor, List.of(currentEntry), ooText);
             cursor.collapseToEnd();
         }
+    }
+
+    private String changeToInText(String formattedCitation) {
+        Matcher matcher = YEAR_IN_CITATION_PATTERN.matcher(formattedCitation);
+        if (matcher.find()) {
+            return matcher.group(2) + " " + matcher.group(1) + matcher.group(3);
+        }
+        return formattedCitation;
     }
 
     public void insertEmpty(XTextCursor cursor, List<BibEntry> entries)
@@ -250,5 +279,9 @@ public class CSLCitationOOAdapter {
     public boolean isCitedEntry(BibEntry entry) {
         String citationKey = entry.getCitationKey().orElse("");
         return markManager.hasCitationForKey(citationKey);
+    }
+
+    private boolean isAlphanumericStyle(CitationStyle style) {
+        return "DIN 1505-2 (alphanumeric, Deutsch) - standard superseded by ISO-690".equals(style.getTitle());
     }
 }

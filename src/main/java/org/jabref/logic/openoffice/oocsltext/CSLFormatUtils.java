@@ -5,7 +5,6 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.jabref.logic.citationstyle.CitationStyle;
 import org.jabref.logic.citationstyle.CitationStyleOutputFormat;
 import org.jabref.model.database.BibDatabaseContext;
 import org.jabref.model.entry.Author;
@@ -29,6 +28,7 @@ public class CSLFormatUtils {
     public static final String DEFAULT_BIBLIOGRAPHY_TITLE = "References";
     public static final String DEFAULT_BIBLIOGRAPHY_HEADER_PARAGRAPH_FORMAT = "Heading 2";
     public static final CitationStyleOutputFormat OUTPUT_FORMAT = CitationStyleOutputFormat.HTML;
+    private static final int MAX_ALPHA_AUTHORS = 4;
 
     /**
      * Transforms provided HTML into a format that can be fully parsed by OOTextIntoOO.write(...)
@@ -122,7 +122,7 @@ public class CSLFormatUtils {
         return formattedCitation;
     }
 
-    private String generateAlphanumericCitation(List<BibEntry> entries, BibDatabaseContext bibDatabaseContext) {
+    public static String generateAlphanumericCitation(List<BibEntry> entries, BibDatabaseContext bibDatabaseContext) {
         StringBuilder citation = new StringBuilder("[");
         for (int i = 0; i < entries.size(); i++) {
             BibEntry entry = entries.get(i);

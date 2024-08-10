@@ -604,4 +604,84 @@ public class CSLFormatUtilsTest {
         String result = CSLFormatUtils.extractYear(citation);
         assertEquals("O2021. Special Characters' Study", result);
     }
+
+    @ParameterizedTest
+    @MethodSource("provideBibEntries")
+    public void testGenerateAlphanumericCitationA(List<BibEntry> entries, String expectedCitation) {
+        BibDatabaseContext context = new BibDatabaseContext(new BibDatabase(entries));
+        String actualCitation = CSLFormatUtils.generateAlphanumericCitation(entries, context);
+        assertEquals(expectedCitation, actualCitation);
+    }
+
+    private static Stream<Arguments> provideBibEntries() {
+        BibEntry entry1 = new BibEntry(StandardEntryType.Article)
+                .withField(StandardField.AUTHOR, "Garcia, Maria")
+                .withField(StandardField.TITLE, "Quantum Entanglement in Superconductors")
+                .withField(StandardField.JOURNAL, "International Review of Physics")
+                .withField(StandardField.VOLUME, "28")
+                .withField(StandardField.NUMBER, "6")
+                .withField(StandardField.PAGES, "789--810")
+                .withField(StandardField.YEAR, "2021")
+                .withCitationKey("Garcia_2021");
+
+        BibEntry entry2 = new BibEntry(StandardEntryType.Article)
+                .withField(StandardField.AUTHOR, "Smith, John and Johnson, Emily")
+                .withField(StandardField.TITLE, "A Study on Machine Learning Algorithms")
+                .withField(StandardField.JOURNAL, "Journal of Computer Science")
+                .withField(StandardField.VOLUME, "15")
+                .withField(StandardField.NUMBER, "4")
+                .withField(StandardField.PAGES, "101--120")
+                .withField(StandardField.YEAR, "2020")
+                .withCitationKey("Smith_2020");
+
+        BibEntry entry3 = new BibEntry(StandardEntryType.Article)
+                .withField(StandardField.AUTHOR, "Johnson, Emily; Williams, Jessica; Lee, David")
+                .withField(StandardField.TITLE, "Trends in Artificial Intelligence")
+                .withField(StandardField.JOURNAL, "AI Magazine")
+                .withField(StandardField.VOLUME, "41")
+                .withField(StandardField.NUMBER, "2")
+                .withField(StandardField.PAGES, "45--60")
+                .withField(StandardField.YEAR, "2019")
+                .withCitationKey("Johnson_2019");
+
+        BibEntry entry4 = new BibEntry(StandardEntryType.Article)
+                .withField(StandardField.AUTHOR, "Smith, John; Johnson, Emily; Lee, David; Williams, Jessica")
+                .withField(StandardField.TITLE, "Big Data Analytics in Healthcare")
+                .withField(StandardField.JOURNAL, "Journal of Medical Informatics")
+                .withField(StandardField.VOLUME, "23")
+                .withField(StandardField.NUMBER, "1")
+                .withField(StandardField.PAGES, "11--25")
+                .withField(StandardField.YEAR, "2018")
+                .withCitationKey("Smith_2018");
+
+        BibEntry entry5 = new BibEntry(StandardEntryType.Article)
+                .withField(StandardField.AUTHOR, "Garcia, Maria; Smith, John; Johnson, Emily; Lee, David; Williams, Jessica")
+                .withField(StandardField.TITLE, "Advances in Renewable Energy Technologies")
+                .withField(StandardField.JOURNAL, "Energy Policy")
+                .withField(StandardField.VOLUME, "52")
+                .withField(StandardField.NUMBER, "3")
+                .withField(StandardField.PAGES, "120--135")
+                .withField(StandardField.YEAR, "2017")
+                .withCitationKey("Garcia_2017");
+
+        return Stream.of(
+                // Entry with single author
+                Arguments.of(List.of(entry1), "[Garc21]"),
+
+                // Entry with two authors
+                Arguments.of(List.of(entry2), "[SJ20]"),
+
+                // Entry with three authors
+                Arguments.of(List.of(entry3), "[JWL19]"),
+
+                // Entry with four authors
+                Arguments.of(List.of(entry4), "[SJLW18]"),
+
+                // Entry with five authors
+                Arguments.of(List.of(entry5), "[GSJL17]"),
+
+                // Multiple entries with varying number of authors
+                Arguments.of(List.of(entry1, entry2, entry3, entry4, entry5), "[Garc21; SJ20; JWL19; SJLW18; GSJL17]")
+        );
+    }
 }
