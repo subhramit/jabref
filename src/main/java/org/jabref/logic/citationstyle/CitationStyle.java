@@ -17,9 +17,10 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLStreamConstants;
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamReader;
 
 import org.jabref.architecture.AllowedToUseClassGetResource;
 import org.jabref.logic.openoffice.style.OOStyle;
@@ -27,12 +28,6 @@ import org.jabref.logic.util.StandardFileType;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.w3c.dom.CharacterData;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.NodeList;
-import org.xml.sax.InputSource;
-import org.xml.sax.SAXException;
 
 /**
  * Representation of a CitationStyle. Stores its name, the file path and the style itself
@@ -45,15 +40,17 @@ public class CitationStyle implements OOStyle {
     private static final Logger LOGGER = LoggerFactory.getLogger(CitationStyle.class);
     private static final String STYLES_ROOT = "/csl-styles";
     private static final List<CitationStyle> STYLES = new ArrayList<>();
-    private static final DocumentBuilderFactory FACTORY = DocumentBuilderFactory.newInstance();
+    private static final XMLInputFactory FACTORY = XMLInputFactory.newInstance();
 
     private final String filePath;
     private final String title;
+    private final boolean isNumericStyle;
     private final String source;
 
-    private CitationStyle(final String filename, final String title, final String source) {
+    private CitationStyle(final String filename, final String title, final boolean isNumericStyle, final String source) {
         this.filePath = Objects.requireNonNull(filename);
         this.title = Objects.requireNonNull(title);
+        this.isNumericStyle = isNumericStyle;
         this.source = Objects.requireNonNull(source);
     }
 
@@ -62,39 +59,72 @@ public class CitationStyle implements OOStyle {
      */
     private static Optional<CitationStyle> createCitationStyleFromSource(final InputStream source, final String filename) {
         try {
-            // We need the content twice:
-            //   First, for parsing it here for the name
-            //   Second for the CSL library to parse it
             String content = new String(source.readAllBytes());
 
-            Optional<String> title = getTitle(filename, content);
-            if (title.isEmpty()) {
+            Optional<StyleInfo> styleInfo = parseStyleInfo(filename, content);
+            if (styleInfo.isEmpty()) {
                 return Optional.empty();
             }
 
-            return Optional.of(new CitationStyle(filename, title.get(), content));
-        } catch (ParserConfigurationException | SAXException | NullPointerException | IOException e) {
+            return Optional.of(new CitationStyle(filename, styleInfo.get().title(), styleInfo.get().isNumericStyle(), content));
+        } catch (IOException e) {
             LOGGER.error("Error while parsing source", e);
             return Optional.empty();
         }
     }
 
-    private static Optional<String> getTitle(String filename, String content) throws SAXException, IOException, ParserConfigurationException {
-        // TODO: Switch to StAX parsing (to speed up - we need only the title)
-        InputSource inputSource = new InputSource(new StringReader(content));
-        Document doc = FACTORY.newDocumentBuilder().parse(inputSource);
+    public record StyleInfo(String title, boolean isNumericStyle) {
+    }
 
-        // See CSL#canFormatBibliographies, checks if the tag exists
-        NodeList bibs = doc.getElementsByTagName("bibliography");
-        if (bibs.getLength() <= 0) {
-            LOGGER.debug("no bibliography element for file {} ", filename);
+    public static Optional<StyleInfo> parseStyleInfo(String filename, String content) {
+        FACTORY.setProperty(XMLInputFactory.IS_COALESCING, true);
+
+        try {
+            XMLStreamReader reader = FACTORY.createXMLStreamReader(new StringReader(content));
+
+            boolean inInfo = false;
+            boolean hasBibliography = false;
+            String title = "";
+            boolean isNumericStyle = false;
+
+            while (reader.hasNext()) {
+                int event = reader.next();
+
+                if (event == XMLStreamConstants.START_ELEMENT) {
+                    String elementName = reader.getLocalName();
+
+                    switch (elementName) {
+                        case "bibliography" -> hasBibliography = true;
+                        case "info" -> inInfo = true;
+                        case "title" -> {
+                            if (inInfo) {
+                                title = reader.getElementText();
+                            }
+                        }
+                        case "category" -> {
+                            String citationFormat = reader.getAttributeValue(null, "citation-format");
+                            if (citationFormat != null) {
+                                isNumericStyle = "numeric".equals(citationFormat);
+                            }
+                        }
+                    }
+                } else if (event == XMLStreamConstants.END_ELEMENT) {
+                    if ("info".equals(reader.getLocalName())) {
+                        inInfo = false;
+                    }
+                }
+            }
+
+            if (hasBibliography && title != null) {
+                return Optional.of(new StyleInfo(title, isNumericStyle));
+            } else {
+                LOGGER.debug("No valid title or bibliography found for file {}", filename);
+                return Optional.empty();
+            }
+        } catch (XMLStreamException e) {
+            LOGGER.error("Error parsing XML for file {}: {}", filename, e.getMessage());
             return Optional.empty();
         }
-
-        NodeList nodes = doc.getElementsByTagName("info");
-        NodeList titleNode = ((Element) nodes.item(0)).getElementsByTagName("title");
-        String title = ((CharacterData) titleNode.item(0).getFirstChild()).getData();
-        return Optional.of(title);
     }
 
     private static String stripInvalidProlog(String source) {
@@ -138,7 +168,7 @@ public class CitationStyle implements OOStyle {
      * @return default citation style
      */
     public static CitationStyle getDefault() {
-        return createCitationStyleFromFile(DEFAULT).orElse(new CitationStyle("", "Empty", ""));
+        return createCitationStyleFromFile(DEFAULT).orElse(new CitationStyle("", "Empty", false, ""));
     }
 
     /**
@@ -165,7 +195,8 @@ public class CitationStyle implements OOStyle {
             STYLES.addAll(discoverCitationStylesInPath(path));
 
             return STYLES;
-        } catch (URISyntaxException | IOException e) {
+        } catch (URISyntaxException
+                 | IOException e) {
             LOGGER.error("something went wrong while searching available CitationStyles", e);
             return Collections.emptyList();
         }
@@ -191,6 +222,10 @@ public class CitationStyle implements OOStyle {
 
     public String getTitle() {
         return title;
+    }
+
+    public boolean isNumericStyle() {
+        return isNumericStyle;
     }
 
     public String getSource() {
@@ -237,24 +272,5 @@ public class CitationStyle implements OOStyle {
     @Override
     public String getPath() {
         return getFilePath();
-    }
-
-    public boolean isNumericStyle() {
-        try {
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            Document doc = builder.parse(new InputSource(new StringReader(source)));
-
-            Element styleElement = doc.getDocumentElement();
-            Element infoElement = (Element) styleElement.getElementsByTagName("info").item(0);
-            Element categoryElement = (Element) infoElement.getElementsByTagName("category").item(0);
-
-            String citationFormat = categoryElement.getAttribute("citation-format");
-            return "numeric".equals(citationFormat);
-        } catch (
-                Exception e) {
-            org.tinylog.Logger.error("Error parsing CSL style XML", e);
-            return false;
-        }
     }
 }
