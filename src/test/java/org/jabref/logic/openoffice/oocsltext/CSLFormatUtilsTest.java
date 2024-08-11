@@ -11,6 +11,7 @@ import org.jabref.logic.util.TestEntry;
 import org.jabref.model.database.BibDatabase;
 import org.jabref.model.database.BibDatabaseContext;
 import org.jabref.model.database.BibDatabaseMode;
+import org.jabref.model.entry.AuthorList;
 import org.jabref.model.entry.BibEntry;
 import org.jabref.model.entry.BibEntryTypesManager;
 import org.jabref.model.entry.field.StandardField;
@@ -617,6 +618,12 @@ public class CSLFormatUtilsTest {
         assertEquals("O2021. Special Characters' Study", result);
     }
 
+    /**
+     * <b>Precondition:</b> This test assumes that the method authorsAlpha works correctly.
+     *
+     * @param entries
+     * @param expectedCitation
+     */
     @ParameterizedTest
     @MethodSource("provideBibEntries")
     public void testGenerateAlphanumericCitationA(List<BibEntry> entries, String expectedCitation) {
@@ -694,6 +701,55 @@ public class CSLFormatUtilsTest {
 
                 // Multiple entries with varying number of authors
                 Arguments.of(List.of(entry1, entry2, entry3, entry4, entry5), "[Garc21; SJ20; JWL19; SJLW18; GSJL17]")
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideAuthorsAndExpectedOutput")
+    void testAuthorsAlpha(String authors, String expected) {
+        AuthorList authorList = AuthorList.parse(authors);
+        assertEquals(expected, CSLFormatUtils.authorsAlpha(authorList));
+    }
+
+    private static Stream<Arguments> provideAuthorsAndExpectedOutput() {
+        return Stream.of(
+
+                // Single author
+                Arguments.of("John Doe", "Doe"),
+                Arguments.of("van der Aalst", "vdAals"),
+
+                // Two authors
+                Arguments.of("John Doe and Jane Smith", "DS"),
+                Arguments.of("van der Aalst and Smith", "vdAS"),
+
+                // Three authors
+                Arguments.of("John Doe and Jane Smith and Bob Johnson", "DSJ"),
+                Arguments.of("van der Aalst and Smith and Johnson", "vdASJ"),
+
+                // Four authors
+                Arguments.of("John Doe and Jane Smith and Bob Johnson and Alice Brown", "DSJB"),
+                Arguments.of("van der Aalst and Smith and Johnson and Brown", "vdASJB"),
+
+                // Five authors (MAX_ALPHA_AUTHORS)
+                Arguments.of("A and B and C and D and E", "ABCD"),
+                Arguments.of("van der Aalst and Smith and Johnson and Brown and Davis", "vdASJB"),
+
+                // More than MAX_ALPHA_AUTHORS
+                Arguments.of("A and B and C and D and E and F", "ABCD"),
+                Arguments.of("van der Aalst and Smith and Johnson and Brown and Davis and Evans", "vdASJB"),
+
+                // With "and others"
+                Arguments.of("A and B and C and D and E and others", "ABCD"),
+                Arguments.of("van der Aalst and Smith and Johnson and Brown and others", "vdASJB"),
+
+                // Long last names
+                Arguments.of("John Doe-Smith", "Doe-"),
+                Arguments.of("John van der Aalst-Smith", "vdAals"),
+
+                // Non-ASCII characters
+                Arguments.of("Jörg Müller", "Müll"),
+                Arguments.of("Élodie Dupont and François Truffaut", "DT")
+
         );
     }
 }
