@@ -585,7 +585,7 @@ class CitationStyleGeneratorTest {
 
     @ParameterizedTest
     @MethodSource
-    void cslMapping(String expected, BibDatabaseMode mode, BibEntry entry, String cslFileName) throws Exception {
+    void cslMapping(String expected, BibDatabaseMode mode, BibEntry entry, String cslFileName) {
         context.setMode(mode);
 
         String citation = CitationStyleGenerator.generateCitation(

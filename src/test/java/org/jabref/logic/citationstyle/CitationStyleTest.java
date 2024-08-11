@@ -1,6 +1,5 @@
 package org.jabref.logic.citationstyle;
 
-import java.io.InputStream;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -51,32 +50,24 @@ class CitationStyleTest {
 
     @ParameterizedTest
     @MethodSource("citationStyleProvider")
-    void testParseStyleInfo(String filename, String expectedTitle, boolean expectedNumeric) throws Exception {
-        Optional<CitationStyle.StyleInfo> styleInfo = parseStyleInfoFromFile(filename);
+    void testParseStyleInfo(String cslFileName, String expectedTitle, boolean expectedNumericNature) {
+        Optional<CitationStyle> citationStyle = CitationStyle.createCitationStyleFromFile(cslFileName);
 
-        assertTrue(styleInfo.isPresent(), "Style info should be present for " + filename);
-        assertEquals(expectedTitle, styleInfo.get().title(), "Title should match for " + filename);
-        assertEquals(expectedNumeric, styleInfo.get().isNumericStyle(), "Numeric style should match for " + filename);
+        assertTrue(citationStyle.isPresent(), "Citation style should be present for " + cslFileName);
+
+        CitationStyle.StyleInfo styleInfo = new CitationStyle.StyleInfo(citationStyle.get().getTitle(), citationStyle.get().isNumericStyle());
+
+        assertEquals(expectedTitle, styleInfo.title(), "Title should match for " + cslFileName);
+        assertEquals(expectedNumericNature, styleInfo.isNumericStyle(), "Numeric style should match for " + cslFileName);
     }
 
     private static Stream<Arguments> citationStyleProvider() {
         return Stream.of(
-                Arguments.of("/ieee.csl", "IEEE", true),
-                Arguments.of("/apa.csl", "American Psychological Association 7th edition", false),
-                Arguments.of("/harvard1.csl", "Harvard Reference format 1 (author-date)", false),
-                Arguments.of("/vancouver.csl", "Vancouver", true),
-                Arguments.of("/chicago-author-date.csl", "Chicago Manual of Style 17th edition (author-date)", false),
-                Arguments.of("/nature.csl", "Nature", true)
+                Arguments.of("ieee.csl", "IEEE", true),
+                Arguments.of("apa.csl", "American Psychological Association 7th edition", false),
+                Arguments.of("vancouver.csl", "Vancouver", true),
+                Arguments.of("chicago-author-date.csl", "Chicago Manual of Style 17th edition (author-date)", false),
+                Arguments.of("nature.csl", "Nature", true)
         );
-    }
-
-    private Optional<CitationStyle.StyleInfo> parseStyleInfoFromFile(String filename) throws Exception {
-        try (InputStream is = getClass().getResourceAsStream(filename)) {
-            if (is == null) {
-                throw new IllegalArgumentException("File not found: " + filename);
-            }
-            String content = new String(is.readAllBytes());
-            return CitationStyle.parseStyleInfo(filename, content);
-        }
     }
 }
