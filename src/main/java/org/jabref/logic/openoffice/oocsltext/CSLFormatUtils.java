@@ -21,7 +21,7 @@ import org.apache.commons.text.StringEscapeUtils;
  */
 public class CSLFormatUtils {
 
-    public static final Pattern YEAR_IN_CITATION_PATTERN = Pattern.compile("(.).*?, (\\d{4}.*)");
+    private static final Pattern YEAR_IN_CITATION_PATTERN = Pattern.compile("(.)(.*), (\\d{4}.*)");
     public static final String[] PREFIXES = {"JABREF_", "CSL_"};
 
     // TODO: These are static final fields right now, should add the functionality to let user select these and store them in preferences.
@@ -114,10 +114,10 @@ public class CSLFormatUtils {
      *
      * @param formattedCitation - the citation cleaned up and formatted using transformHTML
      */
-    public static String extractYear(String formattedCitation) {
+    public static String changeToInText(String formattedCitation) {
         Matcher matcher = YEAR_IN_CITATION_PATTERN.matcher(formattedCitation);
         if (matcher.find()) {
-            return matcher.group(1) + matcher.group(2);
+            return matcher.group(2) + " " + matcher.group(1) + matcher.group(3);
         }
         return formattedCitation;
     }
@@ -151,47 +151,32 @@ public class CSLFormatUtils {
         return citation.toString();
     }
 
-    public static String authorsAlpha(AuthorList authorList) {
+    static String authorsAlpha(AuthorList authorList) {
         StringBuilder alphaStyle = new StringBuilder();
-        int maxAuthors;
-        final boolean maxAuthorsExceeded;
-        if (authorList.getNumberOfAuthors() <= MAX_ALPHA_AUTHORS) {
-            maxAuthors = authorList.getNumberOfAuthors();
-            maxAuthorsExceeded = false;
-        } else {
-            maxAuthors = MAX_ALPHA_AUTHORS;
-            maxAuthorsExceeded = true;
-        }
+        int numberOfAuthors = authorList.getNumberOfAuthors();
+        boolean andOthersPresent = numberOfAuthors > 1 &&
+                authorList.getAuthor(numberOfAuthors - 1).equals(Author.OTHERS);
 
-        if (authorList.getNumberOfAuthors() == 1) {
-            String[] firstAuthor = authorList.getAuthor(0).getNamePrefixAndFamilyName()
-                                             .replaceAll("\\s+", " ").trim().split(" ");
-            // take first letter of any "prefixes" (e.g. van der Aalst -> vd)
-            for (int j = 0; j < (firstAuthor.length - 1); j++) {
-                alphaStyle.append(firstAuthor[j], 0, 1);
-            }
-            // append last part of last name completely
-            alphaStyle.append(firstAuthor[firstAuthor.length - 1], 0,
-                    Math.min(4, firstAuthor[firstAuthor.length - 1].length()));
+        if (numberOfAuthors == 1 || andOthersPresent) {
+            // Single author or "and others" case
+            String lastName = getLastName(authorList.getAuthor(0));
+            alphaStyle.append(lastName, 0, Math.min(2, lastName.length()));
         } else {
-            boolean andOthersPresent = authorList.getAuthor(maxAuthors - 1).equals(Author.OTHERS);
-            if (andOthersPresent) {
-                maxAuthors--;
-            }
-            List<String> vonAndLastNames = authorList.getAuthors().stream()
-                                                     .limit(maxAuthors)
-                                                     .map(Author::getNamePrefixAndFamilyName)
-                                                     .toList();
-            for (String vonAndLast : vonAndLastNames) {
-                // replace all whitespaces by " "
-                // split the lastname at " "
-                String[] nameParts = vonAndLast.replaceAll("\\s+", " ").trim().split(" ");
-                for (String part : nameParts) {
-                    // use first character of each part of lastname
-                    alphaStyle.append(part, 0, 1);
-                }
+            int maxAuthors = Math.min(numberOfAuthors, MAX_ALPHA_AUTHORS);
+            for (int i = 0; i < maxAuthors; i++) {
+                String lastName = getLastName(authorList.getAuthor(i));
+                alphaStyle.append(lastName, 0, 1);
+                if (alphaStyle.length() >= 4) break; // Stop after 4 authors
             }
         }
         return alphaStyle.toString();
+    }
+
+    private static String getLastName(Author author) {
+        String[] nameParts = author.getNamePrefixAndFamilyName()
+                                   .replaceAll("\\s+", " ")
+                                   .trim()
+                                   .split(" ");
+        return nameParts[nameParts.length - 1];
     }
 }

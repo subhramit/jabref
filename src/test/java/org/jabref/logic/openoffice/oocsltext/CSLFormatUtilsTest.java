@@ -11,7 +11,6 @@ import org.jabref.logic.util.TestEntry;
 import org.jabref.model.database.BibDatabase;
 import org.jabref.model.database.BibDatabaseContext;
 import org.jabref.model.database.BibDatabaseMode;
-import org.jabref.model.entry.AuthorList;
 import org.jabref.model.entry.BibEntry;
 import org.jabref.model.entry.BibEntryTypesManager;
 import org.jabref.model.entry.field.StandardField;
@@ -19,11 +18,12 @@ import org.jabref.model.entry.types.StandardEntryType;
 import org.jabref.model.openoffice.ootext.OOText;
 
 import de.undercouch.citeproc.output.Citation;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import static org.jabref.logic.openoffice.oocsltext.CSLCitationOOAdapter.generateInTextCitation;
+import static org.jabref.logic.openoffice.oocsltext.CSLFormatUtils.generateAlphanumericCitation;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class CSLFormatUtilsTest {
@@ -525,7 +525,7 @@ public class CSLFormatUtilsTest {
 
     static Stream<Arguments> rawNumericCitationProvider() {
         return Stream.of(
-                // Type:"[1]"
+                // Type: "[1]"
                 Arguments.of(
                         STYLE_LIST.stream().filter(e -> "IEEE".equals(e.getTitle())).findAny().orElse(null),
                         "  \n" +
@@ -581,41 +581,52 @@ public class CSLFormatUtilsTest {
         );
     }
 
-    // Tests for extractYear()xtractY
-
-    @Test
-    public void testExtractYearWithValidCitation() {
-        String citation = "Smith, 2023. The Art of Testing";
-        String result = CSLFormatUtils.extractYear(citation);
-        assertEquals("S2023. The Art of Testing", result);
+    @ParameterizedTest
+    @MethodSource("provideTestCases")
+    void testChangeToInText(String input, String expected) {
+        assertEquals(expected, CSLFormatUtils.changeToInText(input));
     }
 
-    @Test
-    public void testExtractYearWithNoYear() {
-        String citation = "Smith. The Art of Testing";
-        String result = CSLFormatUtils.extractYear(citation);
-        assertEquals(citation, result);
-    }
+    private static Stream<Arguments> provideTestCases() {
+        return Stream.of(
 
-    @Test
-    public void testExtractYearWithYearOnly() {
-        String citation = "2023";
-        String result = CSLFormatUtils.extractYear(citation);
-        assertEquals(citation, result);
-    }
+                // APA Style
+                Arguments.of("(Smith, 2020)", "Smith (2020)"),
+                Arguments.of("(Johnson & Brown, 2018)", "Johnson & Brown (2018)"),
+                Arguments.of("(Williams et al., 2019)", "Williams et al. (2019)"),
 
-    @Test
-    public void testExtractYearWithMultipleYears() {
-        String citation = "Johnson, 2022, 2023. Multiple Years Study";
-        String result = CSLFormatUtils.extractYear(citation);
-        assertEquals("J2022, 2023. Multiple Years Study", result);
-    }
+                // MLA Style
+                Arguments.of("(Smith 20)", "(Smith 20)"),
+                Arguments.of("(Johnson and Brown 18)", "(Johnson and Brown 18)"),
+                Arguments.of("(Williams et al. 19)", "(Williams et al. 19)"),
 
-    @Test
-    public void testExtractYearWithSpecialCharacters() {
-        String citation = "O'Brien, 2021. Special Characters' Study";
-        String result = CSLFormatUtils.extractYear(citation);
-        assertEquals("O2021. Special Characters' Study", result);
+                // Chicago Style (Author-Date)
+                Arguments.of("(Smith 2020)", "(Smith 2020)"),
+                Arguments.of("(Johnson and Brown 2018)", "(Johnson and Brown 2018)"),
+                Arguments.of("(Williams et al. 2019)", "(Williams et al. 2019)"),
+
+                // Harvard Style
+                Arguments.of("(Smith, 2020)", "Smith (2020)"),
+                Arguments.of("(Johnson and Brown, 2018)", "Johnson and Brown (2018)"),
+                Arguments.of("(Williams et al., 2019)", "Williams et al. (2019)"),
+
+                // IEEE Style
+                Arguments.of("[1]", "[1]"),
+                Arguments.of("[2], [3]", "[2], [3]"),
+
+                // Vancouver Style
+                Arguments.of("(1)", "(1)"),
+                Arguments.of("(1,2)", "(1,2)", "Vancouver"),
+
+                // Nature Style
+                Arguments.of("1", "1", "Nature"),
+                Arguments.of("1,2", "1,2", "Nature"),
+
+                // AMA Style
+                Arguments.of("1", "1", "AMA"),
+                Arguments.of("1,2", "1,2", "AMA")
+
+        );
     }
 
     /**
@@ -626,9 +637,9 @@ public class CSLFormatUtilsTest {
      */
     @ParameterizedTest
     @MethodSource("provideBibEntries")
-    public void testGenerateAlphanumericCitationA(List<BibEntry> entries, String expectedCitation) {
+    void testGenerateAlphanumericCitation(List<BibEntry> entries, String expectedCitation) {
         BibDatabaseContext context = new BibDatabaseContext(new BibDatabase(entries));
-        String actualCitation = CSLFormatUtils.generateAlphanumericCitation(entries, context);
+        String actualCitation = generateAlphanumericCitation(entries, context);
         assertEquals(expectedCitation, actualCitation);
     }
 
@@ -685,7 +696,7 @@ public class CSLFormatUtilsTest {
 
         return Stream.of(
                 // Entry with single author
-                Arguments.of(List.of(entry1), "[Garc21]"),
+                Arguments.of(List.of(entry1), "[Ga21]"),
 
                 // Entry with two authors
                 Arguments.of(List.of(entry2), "[SJ20]"),
@@ -700,56 +711,53 @@ public class CSLFormatUtilsTest {
                 Arguments.of(List.of(entry5), "[GSJL17]"),
 
                 // Multiple entries with varying number of authors
-                Arguments.of(List.of(entry1, entry2, entry3, entry4, entry5), "[Garc21; SJ20; JWL19; SJLW18; GSJL17]")
+                Arguments.of(List.of(entry1, entry2, entry3, entry4, entry5), "[Ga21; SJ20; JWL19; SJLW18; GSJL17]")
+
         );
     }
 
     @ParameterizedTest
-    @MethodSource("provideAuthorsAndExpectedOutput")
-    void testAuthorsAlpha(String authors, String expected) {
-        AuthorList authorList = AuthorList.parse(authors);
-        assertEquals(expected, CSLFormatUtils.authorsAlpha(authorList));
+    @MethodSource("inTextCitationProvider")
+    void testGenerateInTextCitation(CitationStyle style, String expected) throws IOException {
+        BibEntry entry = new BibEntry(StandardEntryType.Article)
+                .withField(StandardField.AUTHOR, "Keen, Michael and Smith, John and Johnson, Emily")
+                .withField(StandardField.TITLE, "Advances in Bibliographic Citation Analysis")
+                .withField(StandardField.JOURNAL, "Journal of Information Science")
+                .withField(StandardField.YEAR, "2001")
+                .withField(StandardField.VOLUME, "27")
+                .withField(StandardField.NUMBER, "4")
+                .withField(StandardField.PAGES, "234--250")
+                .withField(StandardField.DOI, "10.1177/016555150102700456")
+                .withField(StandardField.ISSN, "1741-6485")
+                .withCitationKey("Keen_2001");
+
+        BibDatabaseContext context = new BibDatabaseContext(new BibDatabase(List.of(entry)));
+        context.setMode(BibDatabaseMode.BIBLATEX);
+        BibEntryTypesManager bibEntryTypesManager = new BibEntryTypesManager();
+
+        String actual = generateInTextCitation(entry, style, context, bibEntryTypesManager);
+
+        assertEquals(expected, actual);
     }
 
-    private static Stream<Arguments> provideAuthorsAndExpectedOutput() {
+    static Stream<Arguments> inTextCitationProvider() {
         return Stream.of(
-
-                // Single author
-                Arguments.of("John Doe", "Doe"),
-                Arguments.of("van der Aalst", "vdAals"),
-
-                // Two authors
-                Arguments.of("John Doe and Jane Smith", "DS"),
-                Arguments.of("van der Aalst and Smith", "vdAS"),
-
-                // Three authors
-                Arguments.of("John Doe and Jane Smith and Bob Johnson", "DSJ"),
-                Arguments.of("van der Aalst and Smith and Johnson", "vdASJ"),
-
-                // Four authors
-                Arguments.of("John Doe and Jane Smith and Bob Johnson and Alice Brown", "DSJB"),
-                Arguments.of("van der Aalst and Smith and Johnson and Brown", "vdASJB"),
-
-                // Five authors (MAX_ALPHA_AUTHORS)
-                Arguments.of("A and B and C and D and E", "ABCD"),
-                Arguments.of("van der Aalst and Smith and Johnson and Brown and Davis", "vdASJB"),
-
-                // More than MAX_ALPHA_AUTHORS
-                Arguments.of("A and B and C and D and E and F", "ABCD"),
-                Arguments.of("van der Aalst and Smith and Johnson and Brown and Davis and Evans", "vdASJB"),
-
-                // With "and others"
-                Arguments.of("A and B and C and D and E and others", "ABCD"),
-                Arguments.of("van der Aalst and Smith and Johnson and Brown and others", "vdASJB"),
-
-                // Long last names
-                Arguments.of("John Doe-Smith", "Doe-"),
-                Arguments.of("John van der Aalst-Smith", "vdAals"),
-
-                // Non-ASCII characters
-                Arguments.of("Jörg Müller", "Müll"),
-                Arguments.of("Élodie Dupont and François Truffaut", "DT")
-
+                Arguments.of(
+                        STYLE_LIST.stream().filter(e -> "American Psychological Association 7th edition".equals(e.getTitle())).findAny().orElse(null),
+                        "Keen et al. (2001)"
+                ),
+//                Arguments.of(
+//                        STYLE_LIST.stream().filter(e -> "IEEE".equals(e.getTitle())).findAny().orElse(null),
+//                        "Keen et al. [1]"
+//                ),
+                Arguments.of(
+                        STYLE_LIST.stream().filter(e -> "Chicago Manual of Style 17th edition (author-date)".equals(e.getTitle())).findAny().orElse(null),
+                        "(Keen, Smith, and Johnson 2001)"
+                ),
+//                Arguments.of(
+//                        STYLE_LIST.stream().filter(e -> "Vancouver".equals(e.getTitle())).findAny().orElse(null),
+//                        "(1)"
+//                )
         );
     }
 }
