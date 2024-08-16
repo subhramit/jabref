@@ -130,7 +130,7 @@ public class CSLCitationOOAdapter {
         }
     }
 
-    public static String generateInTextCitation(BibEntry currentEntry, CitationStyle selectedStyle, BibDatabaseContext bibDatabaseContext, BibEntryTypesManager bibEntryTypesManager) throws IOException {
+    public String generateInTextCitation(BibEntry currentEntry, CitationStyle selectedStyle, BibDatabaseContext bibDatabaseContext, BibEntryTypesManager bibEntryTypesManager) throws IOException {
         String inTextCitation;
         boolean isAlphanumeric = isAlphanumericStyle(selectedStyle);
         String style = selectedStyle.getSource();
