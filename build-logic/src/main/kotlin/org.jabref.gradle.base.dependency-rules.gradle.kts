@@ -1,3 +1,5 @@
+import org.gradle.api.internal.artifacts.dsl.dependencies.DependenciesExtensionModule.module
+
 plugins {
     id("org.gradlex.extra-java-module-info")
     id("org.gradlex.jvm-dependency-conflict-resolution")
@@ -192,7 +194,21 @@ extraJavaModuleInfo {
         // requires("jackson.annotations")
     }
     module("dev.langchain4j:langchain4j", "langchain4j")
-    module("dev.langchain4j:langchain4j-core", "langchain4j.core")
+    module("dev.langchain4j:langchain4j-core", "langchain4j.core") {
+        // workaround for https://github.com/langchain4j/langchain4j/issues/3668
+        mergeJar("dev.langchain4j:langchain4j-http-client")
+        mergeJar("dev.langchain4j:langchain4j-http-client-jdk")
+        mergeJar("dev.langchain4j:langchain4j-hugging-face")
+        mergeJar("dev.langchain4j:langchain4j-mistral-ai")
+        mergeJar("dev.langchain4j:langchain4j-open-ai")
+        mergeJar("dev.langchain4j:langchain4j-google-ai-gemini")
+        requires("jtokkit")
+        requires("java.net.http")
+        uses("dev.langchain4j.http.client.HttpClientBuilderFactory")
+        exportAllPackages()
+        requireAllDefinedDependencies()
+        patchRealModule()
+    }
     module("dev.langchain4j:langchain4j-google-ai-gemini", "langchain4j.google.ai.gemini")
     module("dev.langchain4j:langchain4j-http-client", "langchain4j.http.client")
     module("dev.langchain4j:langchain4j-http-client-jdk", "langchain4j.http.client.jdk")
@@ -201,6 +217,10 @@ extraJavaModuleInfo {
     module("dev.langchain4j:langchain4j-open-ai", "langchain4j.open.ai")
     module("eu.lestard:doc-annotations", "doc.annotations")
     module("info.debatty:java-string-similarity", "java.string.similarity")
+    module("io.github.classgraph:classgraph", "io.github.classgraph") {
+        overrideModuleName()
+        exportAllPackages()
+    }
     module("io.github.adr:e-adr", "io.github.adr")
     module("io.github.java-diff-utils:java-diff-utils", "io.github.javadiffutils")
     module("io.zonky.test.postgres:embedded-postgres-binaries-darwin-amd64", "embedded.postgres.binaries.darwin.amd64")
@@ -232,7 +252,11 @@ extraJavaModuleInfo {
     }
     module("org.apache.pdfbox:pdfbox-io", "org.apache.pdfbox.io")
     module("org.apache.velocity:velocity-engine-core", "velocity.engine.core")
-    module("org.eclipse.jgit:org.eclipse.jgit", "org.eclipse.jgit")
+    module("org.eclipse.jgit:org.eclipse.jgit", "org.eclipse.jgit") {
+        exportAllPackages()
+        requires("org.slf4j")
+        uses("org.eclipse.jgit.lib.SignerFactory")
+    }
     module("org.fxmisc.undo:undofx", "org.fxmisc.undo")
     module("org.fxmisc.wellbehaved:wellbehavedfx", "wellbehavedfx") {
         exportAllPackages()
@@ -274,8 +298,9 @@ extraJavaModuleInfo {
     module("org.xmlunit:xmlunit-matchers", "org.xmlunit.matchers") {
         exportAllPackages()
         requires("java.logging")
-        requires("org.xmlunit")
+        requires("java.xml")
         requires("org.hamcrest")
+        requires("org.xmlunit")
     }
     module("org.xmlunit:xmlunit-placeholders", "org.xmlunit.placeholder")
 
@@ -283,6 +308,56 @@ extraJavaModuleInfo {
     module("com.github.javaparser:javaparser-core", "com.github.javaparser.core")
     module("com.github.javaparser:javaparser-symbol-solver-core", "com.github.javaparser.symbolsolver.core")
     module("net.sf.jopt-simple:jopt-simple", "jopt.simple")
+
+    module("org.eclipse.lsp4j:org.eclipse.lsp4j", "org.eclipse.lsp4j") {
+        exportAllPackages()
+        requireAllDefinedDependencies()
+        requires("com.google.gson")
+    }
+    module("org.eclipse.lsp4j:org.eclipse.lsp4j.debug", "org.eclipse.lsp4j.debug") {
+        exportAllPackages()
+    }
+    module("org.eclipse.lsp4j:org.eclipse.lsp4j.generator", "org.eclipse.lsp4j.generator") {
+        exportAllPackages()
+    }
+    module("org.eclipse.lsp4j:org.eclipse.lsp4j.jsonrpc", "org.eclipse.lsp4j.jsonrpc") {
+        exportAllPackages()
+        requires("com.google.gson")
+        requires("java.logging")
+    }
+    module("org.eclipse.lsp4j:org.eclipse.lsp4j.jsonrpc.debug", "org.eclipse.lsp4j.jsonrpc.debug") {
+        exportAllPackages()
+    }
+    module("org.eclipse.lsp4j:org.eclipse.lsp4j.websocket", "org.eclipse.lsp4j.websocket") {
+        exportAllPackages()
+        requireAllDefinedDependencies()
+    }
+    module("org.eclipse.lsp4j:org.eclipse.lsp4j.websocket.jakarta", "org.eclipse.lsp4j.websocket.jakarta") {
+        exportAllPackages()
+        requireAllDefinedDependencies()
+    }
+    module("jakarta.websocket:jakarta.websocket-api", "jakarta.websocket") {
+        overrideModuleName()
+        exportAllPackages()
+    }
+    module("javax.websocket:javax.websocket-api", "javax.websocket.api") {
+        exportAllPackages()
+    }
+    module("org.eclipse.xtend:org.eclipse.xtend", "xtend") {
+        exportAllPackages()
+    }
+    module("org.eclipse.xtend:org.eclipse.xtend.lib", "xtend.lib") {
+        overrideModuleName()
+        exportAllPackages()
+    }
+    module("org.eclipse.xtend:org.eclipse.xtend.lib.macro", "xtend.lib.macro") {
+        overrideModuleName()
+        exportAllPackages()
+    }
+    module("org.eclipse.xtext:org.eclipse.xtext.xbase.lib", "xtext.xbase.lib") {
+        overrideModuleName()
+        exportAllPackages()
+    }
 
     module("com.tngtech.archunit:archunit-junit5-api", "com.tngtech.archunit.junit5.api") {
         exportAllPackages()

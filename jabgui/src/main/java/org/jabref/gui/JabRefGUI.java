@@ -22,6 +22,7 @@ import org.jabref.gui.icon.IconTheme;
 import org.jabref.gui.keyboard.KeyBindingRepository;
 import org.jabref.gui.keyboard.SelectableTextFlowKeyBindings;
 import org.jabref.gui.keyboard.TextInputKeyBindings;
+import org.jabref.gui.keyboard.WalkthroughKeyBindings;
 import org.jabref.gui.openoffice.OOBibBaseConnect;
 import org.jabref.gui.preferences.GuiPreferences;
 import org.jabref.gui.remote.CLIMessageHandler;
@@ -32,9 +33,11 @@ import org.jabref.gui.util.DirectoryMonitor;
 import org.jabref.gui.util.UiTaskExecutor;
 import org.jabref.gui.util.WebViewStore;
 import org.jabref.http.manager.HttpServerManager;
+import org.jabref.languageserver.controller.LanguageServerController;
 import org.jabref.logic.UiCommand;
 import org.jabref.logic.ai.AiService;
 import org.jabref.logic.citation.SearchCitationsRelationsService;
+import org.jabref.logic.git.util.GitHandlerRegistry;
 import org.jabref.logic.journals.JournalAbbreviationLoader;
 import org.jabref.logic.journals.JournalAbbreviationRepository;
 import org.jabref.logic.l10n.Localization;
@@ -82,9 +85,11 @@ public class JabRefGUI extends Application {
     private static ClipBoardManager clipBoardManager;
     private static DialogService dialogService;
     private static JabRefFrame mainFrame;
+    private static GitHandlerRegistry gitHandlerRegistry;
 
     private static RemoteListenerServerManager remoteListenerServerManager;
     private static HttpServerManager httpServerManager;
+    private static LanguageServerController languageServerController;
 
     private Stage mainStage;
 
@@ -116,7 +121,8 @@ public class JabRefGUI extends Application {
                 countingUndoManager,
                 Injector.instantiateModelOrService(BibEntryTypesManager.class),
                 clipBoardManager,
-                taskExecutor);
+                taskExecutor,
+                gitHandlerRegistry);
 
         openWindow();
 
@@ -154,9 +160,13 @@ public class JabRefGUI extends Application {
         DirectoryMonitor directoryMonitor = new DirectoryMonitor();
         Injector.setModelOrService(DirectoryMonitor.class, directoryMonitor);
 
+        gitHandlerRegistry = new GitHandlerRegistry();
+        Injector.setModelOrService(GitHandlerRegistry.class, gitHandlerRegistry);
+
         BibEntryTypesManager entryTypesManager = preferences.getCustomEntryTypesRepository();
+        JournalAbbreviationRepository journalAbbreviationRepository = JournalAbbreviationLoader.loadRepository(preferences.getJournalAbbreviationPreferences());
         Injector.setModelOrService(BibEntryTypesManager.class, entryTypesManager);
-        Injector.setModelOrService(JournalAbbreviationRepository.class, JournalAbbreviationLoader.loadRepository(preferences.getJournalAbbreviationPreferences()));
+        Injector.setModelOrService(JournalAbbreviationRepository.class, journalAbbreviationRepository);
         Injector.setModelOrService(ProtectedTermsLoader.class, new ProtectedTermsLoader(preferences.getProtectedTermsPreferences()));
 
         IndexManager.clearOldSearchIndices();
@@ -167,15 +177,18 @@ public class JabRefGUI extends Application {
         JabRefGUI.httpServerManager = new HttpServerManager();
         Injector.setModelOrService(HttpServerManager.class, JabRefGUI.httpServerManager);
 
-        JabRefGUI.stateManager = new StateManager();
+        JabRefGUI.languageServerController = new LanguageServerController(preferences, journalAbbreviationRepository);
+        Injector.setModelOrService(LanguageServerController.class, JabRefGUI.languageServerController);
+
+        JabRefGUI.stateManager = new JabRefGuiStateManager();
         Injector.setModelOrService(StateManager.class, stateManager);
 
         Injector.setModelOrService(KeyBindingRepository.class, preferences.getKeyBindingRepository());
 
         JabRefGUI.themeManager = new ThemeManager(
                 preferences.getWorkspacePreferences(),
-                fileUpdateMonitor,
-                Runnable::run);
+                fileUpdateMonitor
+        );
         Injector.setModelOrService(ThemeManager.class, themeManager);
 
         JabRefGUI.countingUndoManager = new CountingUndoManager();
@@ -210,10 +223,16 @@ public class JabRefGUI extends Application {
     }
 
     private void setupProxy() {
-        if (!preferences.getProxyPreferences().shouldUseProxy()
-                || !preferences.getProxyPreferences().shouldUseAuthentication()) {
+        if (!preferences.getProxyPreferences().shouldUseProxy()) {
             return;
         }
+
+        if (!preferences.getProxyPreferences().shouldUseAuthentication()) {
+            ProxyRegisterer.register(preferences.getProxyPreferences());
+            return;
+        }
+
+        assert preferences.getProxyPreferences().shouldUseAuthentication();
 
         if (preferences.getProxyPreferences().shouldPersistPassword()
                 && StringUtil.isNotBlank(preferences.getProxyPreferences().getPassword())) {
@@ -279,6 +298,7 @@ public class JabRefGUI extends Application {
         scene.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
             TextInputKeyBindings.call(scene, event, preferences.getKeyBindingRepository());
             SelectableTextFlowKeyBindings.call(scene, event, preferences.getKeyBindingRepository());
+            WalkthroughKeyBindings.call(event, stateManager, preferences.getKeyBindingRepository());
         });
 
         mainStage.setTitle(JabRefFrame.FRAME_TITLE);
@@ -414,7 +434,10 @@ public class JabRefGUI extends Application {
         }
 
         if (remotePreferences.enableHttpServer()) {
-            httpServerManager.start(stateManager.getOpenDatabases(), remotePreferences.getHttpServerUri());
+            httpServerManager.start(stateManager, remotePreferences.getHttpServerUri());
+        }
+        if (remotePreferences.enableLanguageServer()) {
+            languageServerController.start(remotePreferences.getLanguageServerPort());
         }
     }
 
@@ -464,6 +487,12 @@ public class JabRefGUI extends Application {
             });
 
             executor.submit(() -> {
+                LOGGER.trace("Shutting down language server controller");
+                languageServerController.stop();
+                LOGGER.trace("LanguageServerController shut down");
+            });
+
+            executor.submit(() -> {
                 LOGGER.trace("Stopping background tasks");
                 Unirest.shutDown();
                 LOGGER.trace("Unirest shut down");
@@ -509,5 +538,8 @@ public class JabRefGUI extends Application {
         }
 
         LOGGER.trace("Finished stop");
+
+        // Just to be sure that we do not leave any threads running
+        System.exit(0);
     }
 }

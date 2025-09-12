@@ -98,6 +98,7 @@ public class MainTable extends TableView<BibEntryTableViewModel> {
     private String columnSearchTerm;
     private boolean citationMergeMode = false;
 
+    /// There is one maintable instance per library tab
     public MainTable(MainTableDataModel model,
                      LibraryTab libraryTab,
                      LibraryTabContainer tabContainer,
@@ -319,6 +320,27 @@ public class MainTable extends TableView<BibEntryTableViewModel> {
                 getSelectionModel().select(entry);
                 scrollTo(entry);
             });
+        }
+    }
+
+    public void clearAndSelect(List<BibEntry> bibEntries) {
+        // check if entries merged from citation relations tab
+        if (citationMergeMode) {
+            // keep original entry selected and reset citation merge mode
+            this.citationMergeMode = false;
+        } else {
+            // select new entries
+            getSelectionModel().clearSelection();
+            List<BibEntryTableViewModel> entries = bibEntries.stream()
+                                                             .filter(bibEntry -> bibEntry.getCitationKey().isPresent())
+                                                             .map(bibEntry -> findEntryByCitationKey(bibEntry.getCitationKey().get()))
+                                                             .filter(Optional::isPresent)
+                                                             .map(Optional::get)
+                                                             .toList();
+            entries.forEach(entry -> getSelectionModel().select(entry));
+            if (!entries.isEmpty()) {
+                scrollTo(entries.getFirst());
+            }
         }
     }
 
@@ -567,6 +589,10 @@ public class MainTable extends TableView<BibEntryTableViewModel> {
 
     private Optional<BibEntryTableViewModel> findEntry(BibEntry entry) {
         return model.getViewModelByIndex(database.getDatabase().indexOf(entry));
+    }
+
+    private Optional<BibEntryTableViewModel> findEntryByCitationKey(String citationKey) {
+        return model.getViewModelByCitationKey(citationKey);
     }
 
     public void setCitationMergeMode(boolean citationMerge) {

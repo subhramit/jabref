@@ -166,6 +166,8 @@ dependencies {
     implementation("dev.langchain4j:langchain4j-mistral-ai")
     implementation("dev.langchain4j:langchain4j-google-ai-gemini")
     implementation("dev.langchain4j:langchain4j-hugging-face")
+    implementation("dev.langchain4j:langchain4j-http-client")
+    implementation("dev.langchain4j:langchain4j-http-client-jdk")
 
     implementation("org.apache.velocity:velocity-engine-core")
     implementation("ai.djl:api")
@@ -236,7 +238,6 @@ tasks.generateGrammarSource {
     maxHeapSize = "64m"
     arguments = arguments + listOf("-visitor", "-long-messages")
 }
-
 
 val abbrvJabRefOrgDir = layout.projectDirectory.dir("src/main/abbrv.jabref.org")
 val generatedJournalFile = layout.buildDirectory.file("generated/resources/journals/journal-list.mv")
@@ -425,7 +426,8 @@ tasks.test {
         "-javaagent:${mockitoAgent.asPath}",
         "--enable-native-access=com.sun.jna",
         "--add-opens", "java.base/jdk.internal.ref=org.apache.pdfbox.io",
-        "--add-opens", "java.base/java.nio=org.apache.pdfbox.io"
+        "--add-opens", "java.base/java.nio=org.apache.pdfbox.io",
+        "--enable-native-access=com.sun.jna,javafx.graphics,org.apache.lucene.core"
     )
 }
 
@@ -436,25 +438,30 @@ jmh {
     zip64  = true
 }
 
+val testSourceSet = sourceSets["test"]
+
 tasks.register<Test>("fetcherTest") {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    testClassesDirs = testSourceSet.output.classesDirs
+    classpath = testSourceSet.runtimeClasspath
     useJUnitPlatform {
         includeTags("FetcherTest")
     }
-
     maxParallelForks = 1
 }
 
 tasks.register<Test>("databaseTest") {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    testClassesDirs = testSourceSet.output.classesDirs
+    classpath = testSourceSet.runtimeClasspath
     useJUnitPlatform {
         includeTags("DatabaseTest")
     }
-
     testLogging {
         // set options for log level LIFECYCLE
         events("FAILED")
         exceptionFormat = TestExceptionFormat.FULL
     }
-
     maxParallelForks = 1
 }
 
