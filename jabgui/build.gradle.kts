@@ -59,6 +59,10 @@ val useLibericaJdkFullJvmArgs = if (useLibericaJdkFull) listOf(
     "--add-opens", "javafx.controls/com.sun.javafx.scene.control=org.jabref,ALL-UNNAMED"
 ) else emptyList()
 
+// Optional: enable SnuggleTeX JPMS read edge in packaged launcher builds only when requested
+val bstSnuggleAddReads = providers.gradleProperty("bstSnuggleAddReads").map { it == "true" }.orElse(false)
+val snuggleAddReads = listOf("--java-options", "--add-reads snuggletex.core=java.xml")
+
 // Compile-time counterpart of the JavaFX --add-exports above. When JavaFX is patched Maven jars, those
 // internal com.sun.javafx.* packages are exported via the metadata patches in dependency-rules; when JavaFX
 // comes from the JDK those patches are inert, so javac needs the exports too. Only the exports are required
@@ -93,7 +97,7 @@ application {
         // More informaiton: https://learn.microsoft.com/en-us/azure/developer/java/containers/overview#understand-jvm-default-ergonomics
         // "-XX:+UseZGC", "-XX:+ZUncommit"
         // "-XX:+UseG1GC"
-    )
+    ) + listOf("--add-reads", "snuggletex.core=java.xml")
 }
 
 tasks.named<JavaExec>("run") {
@@ -153,7 +157,10 @@ javaModulePackaging {
             "--win-dir-chooser",
             "--win-shortcut",
             "--win-menu",
-            "--win-menu-group", "JabRef"
+            "--win-menu-group", "JabRef",
+
+            // JVM module-read edge for SnuggleTeX XHTML output
+            "--java-options", "--add-reads snuggletex.core=java.xml"
         )
         targetResources.from(layout.projectDirectory.dir("buildres/windows").asFileTree.matching {
             include("jabref-firefox.json")
@@ -182,7 +189,10 @@ javaModulePackaging {
             // Target-speccific options
             "--linux-menu-group", "Office",
             // "--linux-rpm-license-type", "MIT", // We currently package for Ubuntu only, which uses deb, not rpm
-            "--linux-shortcut"
+            "--linux-shortcut",
+
+            // JVM module-read edge for SnuggleTeX XHTML output
+            "--java-options", "--add-reads snuggletex.core=java.xml"
         )
         targetResources.from(layout.projectDirectory.dir("buildres/linux").asFileTree.matching {
             include("native-messaging-host/**")
@@ -206,7 +216,10 @@ javaModulePackaging {
 
             // Target-speccific options
             "--mac-package-identifier", "JabRef",
-            "--mac-package-name", "JabRef"
+            "--mac-package-name", "JabRef",
+
+            // JVM module-read edge for SnuggleTeX XHTML output
+            "--java-options", "--add-reads snuggletex.core=java.xml"
         )
         if (providers.environmentVariable("OSXCERT").map { it == "true" }.orNull ?: false) {
             options.addAll(

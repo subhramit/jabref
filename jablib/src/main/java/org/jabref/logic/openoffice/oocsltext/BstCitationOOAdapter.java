@@ -10,7 +10,7 @@ import org.jabref.logic.bst.BstVM;
 import org.jabref.logic.openoffice.OpenOfficePreferences;
 import org.jabref.logic.openoffice.bst.BstEntryRenderer;
 import org.jabref.logic.openoffice.bst.BstHtmlToOOText;
-import org.jabref.logic.openoffice.bst.PandocLatexConverter;
+import org.jabref.logic.openoffice.bst.SnuggleLatexConverter;
 import org.jabref.logic.openoffice.style.BstCitationFormat;
 import org.jabref.logic.openoffice.style.BstStyle;
 import org.jabref.model.database.BibDatabase;
@@ -44,7 +44,8 @@ public class BstCitationOOAdapter {
 
     private final XTextDocument document;
     private final CSLReferenceMarkManager markManager;
-    private final PandocLatexConverter pandoc;
+    // TEMP: use SnuggleTeX-based converter instead of pandoc for testing
+    private final SnuggleLatexConverter pandoc;
     private final OpenOfficePreferences openOfficePreferences;
 
     public BstCitationOOAdapter(XTextDocument document, OpenOfficePreferences openOfficePreferences)
@@ -52,7 +53,7 @@ public class BstCitationOOAdapter {
         this.document = document;
         this.openOfficePreferences = openOfficePreferences;
         this.markManager = new CSLReferenceMarkManager(document);
-        this.pandoc = new PandocLatexConverter(openOfficePreferences.getPandocPath());
+        this.pandoc = new SnuggleLatexConverter();
         markManager.readAndUpdateExistingMarks();
     }
 

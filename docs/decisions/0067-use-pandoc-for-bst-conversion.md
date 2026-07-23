@@ -67,7 +67,8 @@ Use SnuggleTeX (already a JabRef dependency) to parse LaTeX and produce XHTML/Ma
 * Neutral, because in JabRef today SnuggleTeX is used primarily as a validator with DOM/XHTML output disabled; using its conversion output here would be a new, unexercised path that needs validation against real `.bst` output
 * Bad, because its LaTeX coverage is oriented toward math and does not span several macro constructs `.bst` files emit (e.g., `\providecommand`, `\csname...\endcsname`, `\expandafter\ifx`, `\typeout`, per-style macros like `\BIBentryALTinterwordspacing`)
 * Bad, because coverage gaps will surface per `.bst` style, leading to open-ended support work extending command coverage and mapping
-* Bad, because needs changes in build configuration - in a modular runtime the `snuggletex.core` module does not declare a read edge to `java.xml`, and invoking DOM/XHTML output (`buildXMLString`) touches `javax.xml.parsers`, which throws `IllegalAccessError` unless the JVM is launched with `--add-reads snuggletex.core=java.xml` (or run on the classpath)
+* Bad, because it emits full XHTML/MathML documents (XML declaration, html/body wrappers, namespaces, pretty‑printed newlines) rather than a minimal fragment — JabRef must strip wrappers, remove `xmlns`, and normalize formatting newlines before mapping to the OOText vocabulary
+* Bad, because needs changes in build configuration — in a modular runtime the `snuggletex.core` module does not declare a read edge to `java.xml`, and invoking DOM/XHTML output (`buildXMLString`) touches `javax.xml.parsers`, which throws `IllegalAccessError` unless the JVM is launched with `--add-reads snuggletex.core=java.xml` (or run on the classpath)
 * Anticipated: a mapping layer to `OOText` will be required to translate the XHTML/MathML output into the `OOText` inline vocabulary (italics, bold, small caps, quotes). The exact normalization needed for text‑mode constructs needs validation
 
 ### Pandoc as an optional external process
@@ -75,7 +76,7 @@ Use SnuggleTeX (already a JabRef dependency) to parse LaTeX and produce XHTML/Ma
 `pandoc -f latex -t html --wrap=none` over stdin/stdout, wrapped in a class.
 
 * Good, because it eliminates the historical blocker outright
-* Good, because its HTML output maps onto the `OOText` vocabulary with a handful of tag renames
+* Good, because its HTML output is already a minimal fragment that maps onto the `OOText` vocabulary with only a handful of tag renames (no wrappers/namespaces to strip; minimal normalization)
 * Good, because the optional-dependency pattern already exists in the codebase and needs no new infrastructure
 * Neutral, because the binary is discovered through the OS `PATH` with a preference for manual override, so no platform-specific path logic is needed
 * Bad, because BST support is unavailable until the user installs Pandoc

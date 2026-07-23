@@ -119,4 +119,17 @@ class BstHtmlToOOTextTest {
         String result = BstHtmlToOOText.convert("   \n  ");
         assertTrue(result.isBlank(), "Whitespace-only input should produce blank output");
     }
+
+    // --- SnuggleTeX-specific: ensure italics do not bleed ---
+
+    @Test
+    void snuggleXhtmlItalicsDoNotBleedPastJournalTitle() {
+        // Minimal SnuggleTeX-like XHTML fragment observed in logs
+        String xhtml = "<em xmlns=\"http://www.w3.org/1999/xhtml\">Antioxidants &amp; Redox Signaling</em>, 15(10):2779--2811.";
+
+        String result = BstHtmlToOOText.convert(xhtml);
+
+        assertEquals("<i>Antioxidants & Redox Signaling</i>, 15(10):2779--2811.", result,
+                "Italics must end after the journal title; volume/issue/pages not italicized");
+    }
 }
