@@ -15,15 +15,10 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
-import javafx.beans.property.BooleanProperty;
-import javafx.beans.value.ChangeListener;
-
 import org.jabref.logic.preferences.CliPreferences;
+import org.jabref.logic.search.LinkedFilesFulltextService;
 import org.jabref.logic.search.sqlbased.indexing.BibFieldsIndexer;
-import org.jabref.logic.search.sqlbased.indexing.DefaultLinkedFilesIndexer;
-import org.jabref.logic.search.sqlbased.indexing.ReadOnlyLinkedFilesIndexer;
 import org.jabref.logic.search.sqlbased.retrieval.BibFieldsSearcher;
-import org.jabref.logic.search.sqlbased.retrieval.LinkedFilesSearcher;
 import org.jabref.logic.util.BackgroundTask;
 import org.jabref.logic.util.DelayTaskThrottler;
 import org.jabref.logic.util.Directories;
@@ -50,12 +45,9 @@ public class IndexManager {
 
     private final TaskExecutor taskExecutor;
     private final BibDatabaseContext databaseContext;
-    private final BooleanProperty shouldIndexLinkedFiles;
-    private final ChangeListener<Boolean> preferencesListener;
     private final BibFieldsIndexer bibFieldsIndexer;
-    private final LuceneIndexer linkedFilesIndexer;
     private final BibFieldsSearcher bibFieldsSearcher;
-    private final LinkedFilesSearcher linkedFilesSearcher;
+    private final LinkedFilesFulltextService linkedFilesFulltextService;
     private final DelayTaskThrottler indexUpdateThrottler;
     private final ConcurrentHashMap<String, PendingFieldUpdates> pendingFieldsByEntry = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, FileDelta> pendingFileValuesByEntry = new ConcurrentHashMap<>();
@@ -73,39 +65,12 @@ public class IndexManager {
                         PostgresServer postgresServer) {
         this.taskExecutor = executor;
         this.databaseContext = databaseContext;
-        this.shouldIndexLinkedFiles = preferences.getFilePreferences().fulltextIndexLinkedFilesProperty();
-        this.preferencesListener = (_, _, newValue) -> bindToPreferences(newValue);
-        this.shouldIndexLinkedFiles.addListener(preferencesListener);
 
         bibFieldsIndexer = new BibFieldsIndexer(preferences.getBibEntryPreferences(), databaseContext, postgresServer.getConnection());
-
-        LuceneIndexer indexer;
-        try {
-            indexer = new DefaultLinkedFilesIndexer(databaseContext, preferences.getFilePreferences());
-        } catch (IOException e) {
-            LOGGER.debug("Error initializing linked files index - using read only index");
-            indexer = new ReadOnlyLinkedFilesIndexer(databaseContext);
-        }
-        linkedFilesIndexer = indexer;
-
         this.bibFieldsSearcher = new BibFieldsSearcher(postgresServer.getConnection(), bibFieldsIndexer.getTable());
-        this.linkedFilesSearcher = new LinkedFilesSearcher(databaseContext, linkedFilesIndexer, preferences.getFilePreferences());
+        this.linkedFilesFulltextService = new LinkedFilesFulltextService(databaseContext, preferences.getFilePreferences(), executor);
         this.indexUpdateThrottler = taskExecutor.createThrottler(700);
         updateOnStart();
-    }
-
-    private void bindToPreferences(boolean newValue) {
-        if (newValue) {
-            new BackgroundTask<>() {
-                @Override
-                public Void call() {
-                    linkedFilesIndexer.updateOnStart(this);
-                    return null;
-                }
-            }.executeWith(taskExecutor);
-        } else {
-            linkedFilesIndexer.removeAllFromIndex();
-        }
     }
 
     private void updateOnStart() {
@@ -118,16 +83,6 @@ public class IndexManager {
         }.willBeRecoveredAutomatically(true)
          .onFinished(() -> this.databaseContext.getDatabase().postEvent(new IndexStartedEvent()))
          .executeWith(taskExecutor);
-
-        if (shouldIndexLinkedFiles.get()) {
-            new BackgroundTask<>() {
-                @Override
-                public Void call() {
-                    linkedFilesIndexer.updateOnStart(this);
-                    return null;
-                }
-            }.executeWith(taskExecutor);
-        }
     }
 
     public void addToIndex(List<BibEntry> entries) {
@@ -140,15 +95,7 @@ public class IndexManager {
         }.onFinished(() -> this.databaseContext.getDatabase().postEvent(new IndexAddedOrUpdatedEvent(entries)))
          .executeWith(taskExecutor);
 
-        if (shouldIndexLinkedFiles.get()) {
-            new BackgroundTask<>() {
-                @Override
-                public Void call() {
-                    linkedFilesIndexer.addToIndex(entries, this);
-                    return null;
-                }
-            }.executeWith(taskExecutor);
-        }
+        linkedFilesFulltextService.addToIndex(entries);
     }
 
     public void removeFromIndex(List<BibEntry> entries) {
@@ -161,15 +108,7 @@ public class IndexManager {
         }.onFinished(() -> this.databaseContext.getDatabase().postEvent(new IndexRemovedEvent(entries)))
          .executeWith(taskExecutor);
 
-        if (shouldIndexLinkedFiles.get()) {
-            new BackgroundTask<>() {
-                @Override
-                public Void call() {
-                    linkedFilesIndexer.removeFromIndex(entries, this);
-                    return null;
-                }
-            }.executeWith(taskExecutor);
-        }
+        linkedFilesFulltextService.removeFromIndex(entries);
     }
 
     public void updateEntry(FieldChangedEvent event) {
@@ -237,16 +176,10 @@ public class IndexManager {
                                                            .postEvent(new IndexAddedOrUpdatedEvent(List.of(pendingEntry))))
                      .executeWith(taskExecutor);
 
-                    if (shouldIndexLinkedFiles.get() && fieldsSnapshot.contains(StandardField.FILE)) {
+                    if (fieldsSnapshot.contains(StandardField.FILE)) {
                         FileDelta fileValues = pendingFileValuesByEntry.remove(pendingEntryId);
                         if (fileValues != null) {
-                            new BackgroundTask<>() {
-                                @Override
-                                public Void call() {
-                                    linkedFilesIndexer.updateEntry(pendingEntry, fileValues.oldValue(), fileValues.newValue(), this);
-                                    return null;
-                                }
-                            }.executeWith(taskExecutor);
+                            linkedFilesFulltextService.updateEntry(new FieldChangedEvent(pendingEntry, StandardField.FILE, fileValues.newValue(), fileValues.oldValue()));
                         }
                     }
                 }
@@ -255,15 +188,7 @@ public class IndexManager {
     }
 
     public void rebuildFullTextIndex() {
-        if (shouldIndexLinkedFiles.get()) {
-            new BackgroundTask<>() {
-                @Override
-                public Void call() {
-                    linkedFilesIndexer.rebuildIndex(this);
-                    return null;
-                }
-            }.executeWith(taskExecutor);
-        }
+        linkedFilesFulltextService.rebuildFullTextIndex();
     }
 
     public void close() {
@@ -272,8 +197,7 @@ public class IndexManager {
         }
         closeThrottler(false);
         bibFieldsIndexer.close();
-        shouldIndexLinkedFiles.removeListener(preferencesListener);
-        linkedFilesIndexer.close();
+        linkedFilesFulltextService.close();
         databaseContext.getDatabase().postEvent(new IndexClosedEvent());
     }
 
@@ -283,8 +207,7 @@ public class IndexManager {
         }
         closeThrottler(true);
         bibFieldsIndexer.closeAndWait();
-        shouldIndexLinkedFiles.removeListener(preferencesListener);
-        linkedFilesIndexer.closeAndWait();
+        linkedFilesFulltextService.closeAndWait();
         databaseContext.getDatabase().postEvent(new IndexClosedEvent());
     }
 
@@ -311,7 +234,7 @@ public class IndexManager {
         tasks.add(() -> bibFieldsSearcher.search(query));
 
         if (query.getSearchFlags().contains(SearchFlags.FULLTEXT)) {
-            tasks.add(() -> linkedFilesSearcher.search(query));
+            tasks.add(() -> linkedFilesFulltextService.search(query));
         }
 
         List<Future<SearchResults>> futures = HeadlessExecutorService.INSTANCE.executeAll(tasks);

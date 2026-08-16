@@ -12,9 +12,11 @@ import org.jabref.model.search.query.SearchResults;
 ///
 /// Concrete implementors plug into [SearchContext] (the Abstraction) and provide
 /// the actual search + indexing behavior. Today: [org.jabref.logic.search.sqlbased.SqlSearchBackend]
-/// (Postgres metadata index + Lucene linked-file index) and
+/// (Postgres metadata index + Lucene linked-file index),
 /// [org.jabref.logic.search.inmemory.InMemorySearchBackend] (grammar walk
-/// against in-memory entries, no fulltext).
+/// against in-memory entries, no fulltext), and
+/// [org.jabref.logic.search.inmemory.InMemoryLuceneSearchBackend] (in-memory
+/// metadata search plus linked-file fulltext).
 public interface SearchBackend {
 
     /// Run the query against this backend.
@@ -25,7 +27,7 @@ public interface SearchBackend {
     /// Test a single entry against the query without re-running a full library search.
     boolean isEntryMatched(BibEntry entry, SearchQuery query);
 
-    /// Indexing lifecycle. Backends without an index (e.g. in-memory) implement these as no-ops.
+    /// Indexing lifecycle. Backends without the corresponding index implement these as no-ops.
     void addToIndex(List<BibEntry> entries);
 
     void removeFromIndex(List<BibEntry> entries);

@@ -1,13 +1,20 @@
 package org.jabref.logic.search.sqlbased;
 
 import java.lang.reflect.Field;
+import java.net.URISyntaxException;
 import java.nio.file.Path;
+import java.util.EnumSet;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 import javafx.beans.property.SimpleBooleanProperty;
 
 import org.jabref.logic.FilePreferences;
+import org.jabref.logic.importer.ImportFormatPreferences;
+import org.jabref.logic.importer.ParserResult;
+import org.jabref.logic.importer.fileformat.BibtexImporter;
 import org.jabref.logic.preferences.CliPreferences;
 import org.jabref.logic.util.CurrentThreadTaskExecutor;
 import org.jabref.logic.util.DelayTaskThrottler;
@@ -17,6 +24,11 @@ import org.jabref.model.entry.BibEntry;
 import org.jabref.model.entry.BibEntryPreferences;
 import org.jabref.model.entry.event.FieldChangedEvent;
 import org.jabref.model.entry.field.StandardField;
+import org.jabref.model.search.SearchFlags;
+import org.jabref.model.search.query.SearchQuery;
+import org.jabref.model.util.DummyFileUpdateMonitor;
+
+import org.mockito.Answers;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,6 +38,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.api.parallel.ResourceLock;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -52,6 +65,7 @@ class IndexManagerTest {
     void setUp() {
         when(preferences.getBibEntryPreferences()).thenReturn(bibEntryPreferences);
         when(preferences.getFilePreferences()).thenReturn(filePreferences);
+        when(filePreferences.shouldFulltextIndexLinkedFiles()).thenReturn(false);
         when(filePreferences.fulltextIndexLinkedFilesProperty()).thenReturn(new SimpleBooleanProperty(false));
         when(bibEntryPreferences.getKeywordSeparator()).thenReturn(',');
 
@@ -85,6 +99,45 @@ class IndexManagerTest {
         ScheduledFuture<?> scheduledTaskAfterClose = getPrivateField(throttler, "scheduledTask", ScheduledFuture.class);
         assertTrue(executor.isShutdown());
         assertTrue(scheduledTaskAfterClose == null || scheduledTaskAfterClose.isCancelled());
+    }
+
+    @Test
+    void searchReturnsLinkedFileMatchesWhenFulltextEnabled() throws Exception {
+        FilePreferences enabledFilePreferences = FilePreferences.getDefault();
+        enabledFilePreferences.setFulltextIndexLinkedFiles(true);
+        when(preferences.getFilePreferences()).thenReturn(enabledFilePreferences);
+
+        BibDatabaseContext fulltextDatabaseContext = initializeDatabaseFromPath("test-library-with-attached-files.bib");
+        IndexManager indexManager = new IndexManager(fulltextDatabaseContext, TASK_EXECUTOR, preferences, postgresServer);
+
+        try {
+            SearchQuery searchQuery = new SearchQuery("comma", EnumSet.of(SearchFlags.FULLTEXT));
+            Set<String> matchedEntries = indexManager.search(searchQuery).getMatchedEntries();
+
+            Set<String> expectedEntries = Set.of(
+                    getEntryIdByCitationKey(fulltextDatabaseContext, "minimal-sentence-case"),
+                    getEntryIdByCitationKey(fulltextDatabaseContext, "minimal-all-upper-case"),
+                    getEntryIdByCitationKey(fulltextDatabaseContext, "minimal-mixed-case"));
+            assertEquals(expectedEntries, matchedEntries);
+        } finally {
+            indexManager.closeAndWait();
+        }
+    }
+
+    private BibDatabaseContext initializeDatabaseFromPath(String testFile) throws URISyntaxException, java.io.IOException {
+        ParserResult result = new BibtexImporter(mock(ImportFormatPreferences.class, Answers.RETURNS_DEEP_STUBS), new DummyFileUpdateMonitor())
+                .importDatabase(Path.of(Objects.requireNonNull(IndexManagerTest.class.getResource("/org/jabref/logic/search/" + testFile)).toURI()));
+        BibDatabaseContext fulltextDatabaseContext = spy(result.getDatabaseContext());
+        when(fulltextDatabaseContext.getFulltextIndexPath()).thenReturn(indexDir);
+        return fulltextDatabaseContext;
+    }
+
+    private String getEntryIdByCitationKey(BibDatabaseContext fulltextDatabaseContext, String citationKey) {
+        return fulltextDatabaseContext.getEntries().stream()
+                                      .filter(entry -> entry.getCitationKey().map(citationKey::equals).orElse(false))
+                                      .findFirst()
+                                      .orElseThrow()
+                                      .getId();
     }
 
     @SuppressWarnings("unchecked")
