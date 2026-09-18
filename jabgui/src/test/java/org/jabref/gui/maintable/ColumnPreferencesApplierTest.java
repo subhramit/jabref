@@ -1,5 +1,6 @@
 package org.jabref.gui.maintable;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import javafx.scene.control.TableColumn;
@@ -45,7 +46,7 @@ class ColumnPreferencesApplierTest {
 
         MainTableColumnFactory columnFactory = mock(MainTableColumnFactory.class);
         when(columnFactory.createColumn(any(MainTableColumnModel.class))).thenAnswer(invocation -> new MainTableColumn<>((MainTableColumnModel) invocation.getArgument(0)));
-        when(columnFactory.createMatchCategoryColumn(any(MainTableColumnModel.class))).thenAnswer(invocation -> new MainTableColumn<>((MainTableColumnModel) invocation.getArgument(0)));
+        when(columnFactory.createColumns()).thenAnswer(_ -> createColumns(columnPreferences.getColumns()));
 
         // Same order as in MainTable, so that the write-back of the table is part of every test
         applier = new ColumnPreferencesApplier(table, columnFactory, mainTablePreferences);
@@ -149,6 +150,16 @@ class ColumnPreferencesApplierTest {
         mainTablePreferences.setResizeColumnsToFit(true);
 
         assertEquals(TableView.CONSTRAINED_RESIZE_POLICY_SUBSEQUENT_COLUMNS, table.getColumnResizePolicy());
+    }
+
+    /// Mirrors [MainTableColumnFactory#createColumns()]
+    private static List<TableColumn<BibEntryTableViewModel, ?>> createColumns(List<MainTableColumnModel> configuredColumns) {
+        List<TableColumn<BibEntryTableViewModel, ?>> columns = new ArrayList<>();
+        columns.add(new MainTableColumn<>(new MainTableColumnModel(MainTableColumnModel.Type.MATCH_CATEGORY)));
+        configuredColumns.stream()
+                         .filter(MainTableColumnModel::isConfigurable)
+                         .forEach(model -> columns.add(new MainTableColumn<>(model)));
+        return columns;
     }
 
     private static MainTableColumnModel modelOf(TableColumn<BibEntryTableViewModel, ?> column) {

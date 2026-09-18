@@ -46,12 +46,12 @@ class ColumnPreferencesApplier {
         this.mainTablePreferences = mainTablePreferences;
     }
 
-    /// Applies columns and resize policy and follows later changes of the preferences.
+    /// Creates the columns, applies the resize policy and follows later changes of the preferences.
     ///
     /// The initial sort order is not applied here, because sorting a large library is expensive. The caller decides
     /// when to call [#applySortOrder()].
     void bind() {
-        applyColumns();
+        table.getColumns().setAll(columnFactory.createColumns());
         applyResizePolicy(mainTablePreferences.getResizeColumnsToFit());
 
         mainTablePreferences.getColumnPreferences().getColumns().addListener(columnsListener);
@@ -80,14 +80,13 @@ class ColumnPreferencesApplier {
 
     private void applyColumns() {
         List<MainTableColumnModel> configuredColumns = configured(mainTablePreferences.getColumnPreferences().getColumns());
-        Optional<TableColumn<BibEntryTableViewModel, ?>> matchCategoryColumn = findMatchCategoryColumn();
-        if (matchCategoryColumn.isPresent() && configuredColumns.equals(ColumnPreferencesRecorder.toPersistedModels(table.getColumns()))) {
+        if (configuredColumns.equals(ColumnPreferencesRecorder.toPersistedModels(table.getColumns()))) {
             return;
         }
 
         List<TableColumn<BibEntryTableViewModel, ?>> columns = new ArrayList<>();
         // Reusing the instance keeps it in the sort order. A new instance would briefly empty the sort order.
-        columns.add(matchCategoryColumn.orElseGet(() -> columnFactory.createMatchCategoryColumn(new MainTableColumnModel(MainTableColumnModel.Type.MATCH_CATEGORY))));
+        findMatchCategoryColumn().ifPresent(columns::add);
         configuredColumns.stream()
                          .flatMap(model -> findColumn(model)
                                  .or(() -> Optional.ofNullable(columnFactory.createColumn(model)))
