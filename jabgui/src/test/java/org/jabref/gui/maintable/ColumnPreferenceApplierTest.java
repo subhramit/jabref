@@ -1,0 +1,165 @@
+package org.jabref.gui.maintable;
+
+import java.util.List;
+
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+
+import org.jabref.gui.maintable.columns.MainTableColumn;
+import org.jabref.gui.testutils.JavaFxExtension;
+import org.jabref.model.entry.field.SpecialField;
+import org.jabref.model.entry.field.StandardField;
+
+import org.jspecify.annotations.NullMarked;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+@NullMarked
+@ExtendWith(JavaFxExtension.class)
+class ColumnPreferenceApplierTest {
+
+    private TableView<BibEntryTableViewModel> table;
+    private ColumnPreferences columnPreferences;
+    private MainTablePreferences mainTablePreferences;
+    private ColumnPreferenceApplier applier;
+    private MainTableColumnModel titleColumn;
+    private MainTableColumnModel yearColumn;
+    private MainTableColumnModel relevanceColumn;
+
+    @BeforeEach
+    void setUp() {
+        titleColumn = new MainTableColumnModel(MainTableColumnModel.Type.NORMALFIELD, StandardField.TITLE.getName());
+        yearColumn = new MainTableColumnModel(MainTableColumnModel.Type.NORMALFIELD, StandardField.YEAR.getName());
+        relevanceColumn = new MainTableColumnModel(MainTableColumnModel.Type.SPECIALFIELD, SpecialField.RANKING.getName());
+
+        columnPreferences = new ColumnPreferences(List.of(titleColumn, yearColumn), List.of(titleColumn));
+        mainTablePreferences = new MainTablePreferences(columnPreferences, false, false);
+        table = new TableView<>();
+
+        MainTableColumnFactory columnFactory = mock(MainTableColumnFactory.class);
+        when(columnFactory.createColumn(any(MainTableColumnModel.class))).thenAnswer(invocation -> new MainTableColumn<>((MainTableColumnModel) invocation.getArgument(0)));
+        when(columnFactory.createMatchCategoryColumn(any(MainTableColumnModel.class))).thenAnswer(invocation -> new MainTableColumn<>((MainTableColumnModel) invocation.getArgument(0)));
+
+        // Same order as in MainTable, so that the write-back of the table is part of every test
+        applier = new ColumnPreferenceApplier(table, columnFactory, mainTablePreferences);
+        applier.bind();
+        applier.applySortOrder();
+        new PersistenceVisualStateTable(table, columnPreferences).bind();
+    }
+
+    @Test
+    void bindShowsConfiguredColumnsAfterMatchCategoryColumn() {
+        assertEquals(MainTableColumnModel.Type.MATCH_CATEGORY, modelOf(table.getColumns().getFirst()).getType());
+        assertEquals(List.of(titleColumn, yearColumn), visibleColumns());
+    }
+
+    @Test
+    void applySortOrderPutsMatchCategoryColumnFirst() {
+        assertEquals(List.of(table.getColumns().getFirst(), table.getColumns().get(1)), table.getSortOrder());
+    }
+
+    @Test
+    void updatesDisplayedColumnsWhenColumnPreferencesChange() {
+        columnPreferences.setColumns(List.of(relevanceColumn, titleColumn));
+
+        assertEquals(List.of(relevanceColumn, titleColumn), visibleColumns());
+    }
+
+    @Test
+    void updatesSortOrderWhenSortOrderPreferencesChange() {
+        columnPreferences.setColumnSortOrder(List.of(yearColumn, titleColumn));
+
+        assertEquals(List.of(yearColumn, titleColumn), visibleSortOrder());
+    }
+
+    @Test
+    void keepsExistingColumnsWhenAddingAnotherConfiguredColumn() {
+        TableColumn<BibEntryTableViewModel, ?> originalTitleColumn = table.getColumns().get(1);
+
+        columnPreferences.setColumns(List.of(titleColumn, yearColumn, relevanceColumn));
+
+        assertSame(originalTitleColumn, table.getColumns().get(1));
+    }
+
+    @Test
+    void keepsMatchCategoryColumnInSortOrderWhenSortedColumnIsRemoved() {
+        columnPreferences.setColumns(List.of(yearColumn));
+
+        assertEquals(List.of(table.getColumns().getFirst()), table.getSortOrder());
+    }
+
+    @Test
+    void ignoresReservedColumnsInPreferences() {
+        MainTableColumnModel reservedColumn = new MainTableColumnModel(MainTableColumnModel.Type.MATCH_CATEGORY);
+
+        columnPreferences.setColumns(List.of(titleColumn, reservedColumn, relevanceColumn));
+
+        assertEquals(List.of(titleColumn, relevanceColumn), visibleColumns());
+    }
+
+    @Test
+    void preferencesSurviveRoundTripThroughTable() {
+        columnPreferences.setColumns(List.of(relevanceColumn, titleColumn));
+        columnPreferences.setColumnSortOrder(List.of(relevanceColumn));
+
+        assertEquals(List.of(relevanceColumn, titleColumn), columnPreferences.getColumns());
+        assertEquals(List.of(relevanceColumn), columnPreferences.getColumnSortOrder());
+    }
+
+    @Test
+    void tableSurvivesRoundTripThroughPreferences() {
+        TableColumn<BibEntryTableViewModel, ?> yearTableColumn = table.getColumns().get(2);
+        List<TableColumn<BibEntryTableViewModel, ?>> expectedColumns = List.of(table.getColumns().getFirst(), yearTableColumn, table.getColumns().get(1));
+
+        // Reordering by drag and drop, as JavaFX does it
+        table.getColumns().remove(yearTableColumn);
+        table.getColumns().add(1, yearTableColumn);
+
+        assertEquals(expectedColumns, table.getColumns());
+        assertEquals(List.of(yearColumn, titleColumn), columnPreferences.getColumns());
+    }
+
+    /// Widths are persisted only if table columns and preferences share the model instances
+    @Test
+    void columnsAddedByPreferencesUseModelInstancesOfPreferences() {
+        columnPreferences.setColumns(List.of(titleColumn, yearColumn, relevanceColumn));
+
+        assertSame(relevanceColumn, modelOf(table.getColumns().get(3)));
+        assertSame(relevanceColumn, columnPreferences.getColumns().get(2));
+    }
+
+    @Test
+    void unboundApplierStopsReactingToPreferenceChanges() {
+        applier.unbind();
+
+        columnPreferences.setColumns(List.of(relevanceColumn));
+
+        assertEquals(List.of(titleColumn, yearColumn), visibleColumns());
+    }
+
+    @Test
+    void updatesResizePolicyWhenPreferenceChanges() {
+        mainTablePreferences.setResizeColumnsToFit(true);
+
+        assertEquals(TableView.CONSTRAINED_RESIZE_POLICY_SUBSEQUENT_COLUMNS, table.getColumnResizePolicy());
+    }
+
+    private static MainTableColumnModel modelOf(TableColumn<BibEntryTableViewModel, ?> column) {
+        return ((MainTableColumn<?>) column).getModel();
+    }
+
+    private List<MainTableColumnModel> visibleColumns() {
+        return PersistenceVisualStateTable.toPersistedModels(table.getColumns());
+    }
+
+    private List<MainTableColumnModel> visibleSortOrder() {
+        return PersistenceVisualStateTable.toPersistedModels(table.getSortOrder());
+    }
+}

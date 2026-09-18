@@ -65,7 +65,7 @@ public class SearchResultsTable extends TableView<BibEntryTableViewModel> {
         model.getEntriesFilteredAndSorted().comparatorProperty().bind(this.comparatorProperty());
 
         // Store visual state
-        new PersistenceVisualStateTable(this, preferences.getSearchDialogColumnPreferences()).addListeners();
+        new PersistenceVisualStateTable(this, preferences.getSearchDialogColumnPreferences()).bind();
 
         database.getDatabase().registerListener(this);
     }

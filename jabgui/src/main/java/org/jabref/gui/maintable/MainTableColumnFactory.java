@@ -154,7 +154,7 @@ public class MainTableColumnFactory {
     /// This column is always hidden but is used for sorting the table
     /// in the floating mode. The order of the [MatchCategory] enum constants
     /// determines the sorting order.
-    private TableColumn<BibEntryTableViewModel, MatchCategory> createMatchCategoryColumn(MainTableColumnModel columnModel) {
+    TableColumn<BibEntryTableViewModel, MatchCategory> createMatchCategoryColumn(MainTableColumnModel columnModel) {
         TableColumn<BibEntryTableViewModel, MatchCategory> column = new MainTableColumn<>(columnModel);
         column.setCellValueFactory(cellData -> cellData.getValue().matchCategory());
         column.setSortable(true);

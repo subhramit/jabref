@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 @NullMarked
 @ExtendWith(JavaFxExtension.class)
@@ -25,6 +26,7 @@ class PersistenceVisualStateTableTest {
     private ColumnPreferences preferences;
     private MainTableColumnModel titleColumn;
     private MainTableColumnModel relevanceColumn;
+    private PersistenceVisualStateTable persistenceVisualStateTable;
     private int columnPreferenceChanges;
 
     @BeforeEach
@@ -39,7 +41,8 @@ class PersistenceVisualStateTableTest {
                 new MainTableColumn<>(relevanceColumn)));
 
         preferences = new ColumnPreferences(List.of(titleColumn, relevanceColumn), List.of(titleColumn));
-        new PersistenceVisualStateTable(table, preferences).addListeners();
+        persistenceVisualStateTable = new PersistenceVisualStateTable(table, preferences);
+        persistenceVisualStateTable.bind();
         preferences.getColumns().addListener((InvalidationListener) _ -> columnPreferenceChanges++);
     }
 
@@ -48,6 +51,16 @@ class PersistenceVisualStateTableTest {
         table.getColumns().remove(2);
 
         assertEquals(List.of(titleColumn), preferences.getColumns());
+    }
+
+    /// Widths are persisted only if table columns and preferences share the model instances
+    @Test
+    void storesModelInstancesOfTable() {
+        preferences.setColumns(List.of(MainTableColumnModel.parse(titleColumn.getName())));
+
+        table.getColumns().remove(2);
+
+        assertSame(titleColumn, preferences.getColumns().getFirst());
     }
 
     @Test
@@ -65,5 +78,14 @@ class PersistenceVisualStateTableTest {
         relevanceColumn.widthProperty().set(250);
 
         assertEquals(0, columnPreferenceChanges);
+    }
+
+    @Test
+    void unboundTableStopsUpdatingPreferences() {
+        persistenceVisualStateTable.unbind();
+
+        table.getColumns().remove(2);
+
+        assertEquals(List.of(titleColumn, relevanceColumn), preferences.getColumns());
     }
 }

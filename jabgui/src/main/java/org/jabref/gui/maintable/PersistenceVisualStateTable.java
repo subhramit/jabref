@@ -13,10 +13,12 @@ import org.jabref.gui.maintable.columns.MainTableColumn;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/// Keep track of changes made to the columns (reordering, resorting).
+/// Keep track of changes made to the columns (reordering, resorting, resizing).
 ///
-/// Resizing and changing the sort type need no listener here: the column models are the very instances held by
-/// [ColumnPreferences], which reports changes of their properties itself.
+/// This is the table-to-preferences direction. The opposite direction is [ColumnPreferenceApplier].
+///
+/// Resizing and changing the sort type need no listener here: the preferences receive the column models of the
+/// table itself, and [ColumnPreferences] reports changes of their properties.
 public class PersistenceVisualStateTable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PersistenceVisualStateTable.class);
@@ -24,21 +26,41 @@ public class PersistenceVisualStateTable {
     protected final TableView<BibEntryTableViewModel> table;
     protected final ColumnPreferences preferences;
 
+    private final InvalidationListener columnsListener = _ -> updateColumns();
+    private final ListChangeListener<TableColumn<BibEntryTableViewModel, ?>> sortOrderListener = _ -> updateSortOrder();
+
     public PersistenceVisualStateTable(TableView<BibEntryTableViewModel> table, ColumnPreferences preferences) {
         this.table = table;
         this.preferences = preferences;
     }
 
-    public void addListeners() {
-        table.getColumns().addListener((InvalidationListener) _ -> updateColumns());
-        table.getSortOrder().addListener((ListChangeListener<? super TableColumn<BibEntryTableViewModel, ?>>) _ -> updateSortOrder());
+    public void bind() {
+        table.getColumns().addListener(columnsListener);
+        table.getSortOrder().addListener(sortOrderListener);
+    }
+
+    public void unbind() {
+        table.getColumns().removeListener(columnsListener);
+        table.getSortOrder().removeListener(sortOrderListener);
+    }
+
+    /// Returns the models of the given columns as they are stored in the preferences.
+    ///
+    /// [ColumnPreferenceApplier] compares with the same projection. If both directions used different ones, a change
+    /// written by one direction would be reverted by the other.
+    static List<MainTableColumnModel> toPersistedModels(List<? extends TableColumn<BibEntryTableViewModel, ?>> columns) {
+        return columns.stream()
+                      .filter(col -> col instanceof MainTableColumn<?>)
+                      .map(column -> ((MainTableColumn<?>) column).getModel())
+                      .filter(MainTableColumnModel::isConfigurable)
+                      .collect(Collectors.toList());
     }
 
     /// Stores shown columns, their width and their [TableColumn.SortType] in preferences.
     /// The conversion to the "real" string in the preferences is made at
     /// [org.jabref.logic.preferences.JabRefCliPreferences#getColumnSortTypesAsStringList(ColumnPreferences)]
     private void updateColumns() {
-        List<MainTableColumnModel> list = toList(table.getColumns());
+        List<MainTableColumnModel> list = toPersistedModels(table.getColumns());
         LOGGER.debug("Updating columns to {}", list);
         preferences.setColumns(list);
     }
@@ -49,14 +71,6 @@ public class PersistenceVisualStateTable {
     /// on other changes.
     private void updateSortOrder() {
         LOGGER.debug("Updating sort order");
-        preferences.setColumnSortOrder(toList(table.getSortOrder()));
-    }
-
-    private List<MainTableColumnModel> toList(List<TableColumn<BibEntryTableViewModel, ?>> columns) {
-        return columns.stream()
-                      .filter(col -> col instanceof MainTableColumn<?>)
-                      .map(column -> ((MainTableColumn<?>) column).getModel())
-                      .filter(MainTableColumnModel::isConfigurable)
-                      .collect(Collectors.toList());
+        preferences.setColumnSortOrder(toPersistedModels(table.getSortOrder()));
     }
 }
