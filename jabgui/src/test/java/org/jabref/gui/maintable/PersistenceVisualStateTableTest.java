@@ -2,7 +2,7 @@ package org.jabref.gui.maintable;
 
 import java.util.List;
 
-import javafx.scene.control.TableColumn;
+import javafx.beans.InvalidationListener;
 import javafx.scene.control.TableView;
 
 import org.jabref.gui.maintable.columns.MainTableColumn;
@@ -22,10 +22,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class PersistenceVisualStateTableTest {
 
     private TableView<BibEntryTableViewModel> table;
-    private CountingColumnPreferences preferences;
-    private PersistenceVisualStateTable persistenceVisualStateTable;
+    private ColumnPreferences preferences;
     private MainTableColumnModel titleColumn;
     private MainTableColumnModel relevanceColumn;
+    private int columnPreferenceChanges;
 
     @BeforeEach
     void setUp() {
@@ -38,66 +38,32 @@ class PersistenceVisualStateTableTest {
                 new MainTableColumn<>(titleColumn),
                 new MainTableColumn<>(relevanceColumn)));
 
-        preferences = new CountingColumnPreferences(List.of(titleColumn, relevanceColumn), List.of(titleColumn));
-        persistenceVisualStateTable = new PersistenceVisualStateTable(table, preferences);
-        persistenceVisualStateTable.addListeners();
-        preferences.resetCounters();
+        preferences = new ColumnPreferences(List.of(titleColumn, relevanceColumn), List.of(titleColumn));
+        new PersistenceVisualStateTable(table, preferences).addListeners();
+        preferences.getColumns().addListener((InvalidationListener) _ -> columnPreferenceChanges++);
     }
 
     @Test
-    void removedColumnModelsStopUpdatingPreferences() {
+    void removingColumnUpdatesPreferences() {
         table.getColumns().remove(2);
-        preferences.resetCounters();
+
+        assertEquals(List.of(titleColumn), preferences.getColumns());
+    }
+
+    @Test
+    void columnWidthChangeUpdatesPreferences() {
+        titleColumn.widthProperty().set(250);
+
+        assertEquals(1, columnPreferenceChanges);
+    }
+
+    @Test
+    void removedColumnWidthChangeDoesNotUpdatePreferences() {
+        table.getColumns().remove(2);
+        columnPreferenceChanges = 0;
 
         relevanceColumn.widthProperty().set(250);
 
-        assertEquals(0, preferences.columnUpdates());
-    }
-
-    @Test
-    void disposeRemovesColumnModelListeners() {
-        persistenceVisualStateTable.dispose();
-
-        titleColumn.widthProperty().set(250);
-        titleColumn.sortTypeProperty().set(TableColumn.SortType.DESCENDING);
-
-        assertEquals(0, preferences.columnUpdates());
-    }
-
-    private static final class CountingColumnPreferences extends ColumnPreferences {
-
-        private int columnUpdates;
-        private int sortOrderUpdates;
-
-        CountingColumnPreferences(List<MainTableColumnModel> columns,
-                                  List<MainTableColumnModel> columnSortOrder) {
-            super(columns, columnSortOrder);
-        }
-
-        @Override
-        public void setColumns(List<MainTableColumnModel> list) {
-            columnUpdates++;
-            super.setColumns(list);
-        }
-
-        @Override
-        public void setColumnSortOrder(List<MainTableColumnModel> list) {
-            sortOrderUpdates++;
-            super.setColumnSortOrder(list);
-        }
-
-        int columnUpdates() {
-            return columnUpdates;
-        }
-
-        @SuppressWarnings("unused")
-        int sortOrderUpdates() {
-            return sortOrderUpdates;
-        }
-
-        void resetCounters() {
-            columnUpdates = 0;
-            sortOrderUpdates = 0;
-        }
+        assertEquals(0, columnPreferenceChanges);
     }
 }

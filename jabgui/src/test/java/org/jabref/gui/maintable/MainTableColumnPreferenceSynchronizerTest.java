@@ -1,6 +1,5 @@
 package org.jabref.gui.maintable;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import javafx.scene.control.TableColumn;
@@ -17,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -28,6 +28,7 @@ class MainTableColumnPreferenceSynchronizerTest {
     private TableView<BibEntryTableViewModel> table;
     private MainTablePreferences mainTablePreferences;
     private MainTableColumnPreferenceSynchronizer synchronizer;
+    private MainTableColumn<?> matchCategoryColumn;
     private MainTableColumnModel titleColumn;
     private MainTableColumnModel relevanceColumn;
 
@@ -38,32 +39,33 @@ class MainTableColumnPreferenceSynchronizerTest {
 
         ColumnPreferences columnPreferences = new ColumnPreferences(List.of(titleColumn), List.of(titleColumn));
         mainTablePreferences = new MainTablePreferences(columnPreferences, false, false);
+
+        matchCategoryColumn = new MainTableColumn<>(new MainTableColumnModel(MainTableColumnModel.Type.MATCH_CATEGORY));
         table = new TableView<>();
+        table.getColumns().setAll(List.of(matchCategoryColumn, new MainTableColumn<>(titleColumn)));
+        table.getSortOrder().setAll(List.of(matchCategoryColumn, table.getColumns().get(1)));
 
         MainTableColumnFactory columnFactory = mock(MainTableColumnFactory.class);
-        when(columnFactory.createColumns()).thenAnswer(_ -> createColumns(mainTablePreferences.getColumnPreferences().getColumns()));
         when(columnFactory.createColumn(any(MainTableColumnModel.class))).thenAnswer(invocation -> new MainTableColumn<>((MainTableColumnModel) invocation.getArgument(0)));
 
-        PersistenceVisualStateTable persistenceVisualStateTable = new PersistenceVisualStateTable(table, mainTablePreferences.getColumnPreferences());
-        synchronizer = new MainTableColumnPreferenceSynchronizer(table, columnFactory, mainTablePreferences, persistenceVisualStateTable);
-        synchronizer.initializeColumns();
-        synchronizer.restoreConfiguredSortOrder();
+        // Installed as in MainTable, so that the write-back of the table state is part of every test
+        new PersistenceVisualStateTable(table, columnPreferences).addListeners();
+        synchronizer = new MainTableColumnPreferenceSynchronizer(table, columnFactory, mainTablePreferences);
         synchronizer.addListeners();
     }
 
     @Test
     void updatesDisplayedColumnsWhenColumnPreferencesChange() {
-        mainTablePreferences.getColumnPreferences().setColumns(List.of(titleColumn, relevanceColumn));
+        mainTablePreferences.getColumnPreferences().setColumns(List.of(relevanceColumn, titleColumn));
 
-        assertEquals(List.of(titleColumn, relevanceColumn), visibleColumns());
+        assertEquals(List.of(relevanceColumn, titleColumn), visibleColumns());
     }
 
     @Test
-    void updatesConfiguredSortOrderWhenPreferencesChange() {
-        mainTablePreferences.getColumnPreferences().setColumns(List.of(titleColumn, relevanceColumn));
-        mainTablePreferences.getColumnPreferences().setColumnSortOrder(List.of(relevanceColumn));
+    void keepsPreferencesWhenTableWritesItsStateBack() {
+        mainTablePreferences.getColumnPreferences().setColumns(List.of(relevanceColumn, titleColumn));
 
-        assertEquals(List.of(relevanceColumn), visibleSortOrder());
+        assertEquals(List.of(relevanceColumn, titleColumn), mainTablePreferences.getColumnPreferences().getColumns());
     }
 
     @Test
@@ -72,7 +74,14 @@ class MainTableColumnPreferenceSynchronizerTest {
 
         mainTablePreferences.getColumnPreferences().setColumns(List.of(titleColumn, relevanceColumn));
 
-        assertEquals(originalTitleColumn, table.getColumns().get(1));
+        assertSame(originalTitleColumn, table.getColumns().get(1));
+    }
+
+    @Test
+    void keepsMatchCategoryColumnInSortOrderWhenColumnsChange() {
+        mainTablePreferences.getColumnPreferences().setColumns(List.of(relevanceColumn));
+
+        assertEquals(List.of(matchCategoryColumn), table.getSortOrder());
     }
 
     @Test
@@ -80,10 +89,8 @@ class MainTableColumnPreferenceSynchronizerTest {
         MainTableColumnModel reservedColumn = new MainTableColumnModel(MainTableColumnModel.Type.MATCH_CATEGORY);
 
         mainTablePreferences.getColumnPreferences().setColumns(List.of(titleColumn, reservedColumn, relevanceColumn));
-        mainTablePreferences.getColumnPreferences().setColumnSortOrder(List.of(reservedColumn, relevanceColumn));
 
         assertEquals(List.of(titleColumn, relevanceColumn), visibleColumns());
-        assertEquals(List.of(relevanceColumn), visibleSortOrder());
     }
 
     @Test
@@ -102,24 +109,8 @@ class MainTableColumnPreferenceSynchronizerTest {
         assertEquals(TableView.CONSTRAINED_RESIZE_POLICY_SUBSEQUENT_COLUMNS, table.getColumnResizePolicy());
     }
 
-    private List<TableColumn<BibEntryTableViewModel, ?>> createColumns(List<MainTableColumnModel> configuredColumns) {
-        List<TableColumn<BibEntryTableViewModel, ?>> columns = new ArrayList<>();
-        columns.add(new MainTableColumn<>(new MainTableColumnModel(MainTableColumnModel.Type.MATCH_CATEGORY)));
-        configuredColumns.stream()
-                         .filter(MainTableColumnModel::isConfigurable)
-                         .forEach(column -> columns.add(new MainTableColumn<>(column)));
-        return columns;
-    }
-
     private List<MainTableColumnModel> visibleColumns() {
         return table.getColumns().stream()
-                    .map(column -> ((MainTableColumn<?>) column).getModel())
-                    .filter(model -> model.getType() != MainTableColumnModel.Type.MATCH_CATEGORY)
-                    .toList();
-    }
-
-    private List<MainTableColumnModel> visibleSortOrder() {
-        return table.getSortOrder().stream()
                     .map(column -> ((MainTableColumn<?>) column).getModel())
                     .filter(model -> model.getType() != MainTableColumnModel.Type.MATCH_CATEGORY)
                     .toList();

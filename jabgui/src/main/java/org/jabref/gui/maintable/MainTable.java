@@ -3,8 +3,10 @@ package org.jabref.gui.maintable;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -47,6 +49,8 @@ import org.jabref.gui.importer.fetcher.LookupIdentifierAction;
 import org.jabref.gui.keyboard.KeyBinding;
 import org.jabref.gui.keyboard.KeyBindingRepository;
 import org.jabref.gui.libraryproperties.LibraryPropertiesAction;
+import org.jabref.gui.maintable.columns.LibraryColumn;
+import org.jabref.gui.maintable.columns.MainTableColumn;
 import org.jabref.gui.mergeentries.MergeWithFetchedEntryAction;
 import org.jabref.gui.preferences.GuiPreferences;
 import org.jabref.gui.preview.ClipboardContentGenerator;
@@ -96,13 +100,10 @@ public class MainTable extends TableView<BibEntryTableViewModel> {
     private final ImportHandler importHandler;
     private final ClipboardContentGenerator clipboardContentGenerator;
     private final MainTableColumnPreferenceSynchronizer columnPreferenceSynchronizer;
-    private final PersistenceVisualStateTable persistenceVisualStateTable;
-    private final ListChangeListener<TableColumn<BibEntryTableViewModel, ?>> sortOrderListener;
 
     private long lastKeyPressTime;
     private String columnSearchTerm;
     private boolean citationMergeMode = false;
-    private boolean disposed;
 
     /// There is one maintable instance per library tab
     public MainTable(MainTableDataModel model,
@@ -147,10 +148,9 @@ public class MainTable extends TableView<BibEntryTableViewModel> {
                 dialogService,
                 stateManager,
                 taskExecutor);
-        this.persistenceVisualStateTable = new PersistenceVisualStateTable(this, mainTablePreferences.getColumnPreferences());
-        this.columnPreferenceSynchronizer = new MainTableColumnPreferenceSynchronizer(this, mainTableColumnFactory, mainTablePreferences, persistenceVisualStateTable);
 
-        columnPreferenceSynchronizer.initializeColumns();
+        this.getColumns().addAll(mainTableColumnFactory.createColumns());
+        this.getColumns().removeIf(LibraryColumn.class::isInstance);
 
         new ViewModelTableRowFactory<BibEntryTableViewModel>()
                 .withOnMouseClickedEvent((entry, event) -> {
@@ -183,22 +183,15 @@ public class MainTable extends TableView<BibEntryTableViewModel> {
 
         // force match category column to be the first sort order, (match_category column is always the first column)
         this.getSortOrder().addFirst(getColumns().getFirst());
-        this.sortOrderListener = _ -> {
-            if (getColumns().isEmpty()) {
-                return;
+        this.getSortOrder().addListener((ListChangeListener<TableColumn<BibEntryTableViewModel, ?>>) _ -> {
+            if (this.getSortOrder().isEmpty() || !this.getSortOrder().getFirst().equals(getColumns().getFirst())) {
+                this.getSortOrder().addFirst(getColumns().getFirst());
             }
+        });
 
-            // JavaFX can briefly clear the sort order while columns are being rebuilt or reordered.
-            // Guard the empty state here so a preference-driven update does not trigger the same
-            // `NoSuchElementException` that occurred with the earlier full-rebuild approach.
-            TableColumn<BibEntryTableViewModel, ?> matchCategoryColumn = getColumns().getFirst();
-            if (this.getSortOrder().isEmpty()) {
-                this.getSortOrder().addFirst(matchCategoryColumn);
-            } else if (!this.getSortOrder().getFirst().equals(matchCategoryColumn)) {
-                this.getSortOrder().addFirst(matchCategoryColumn);
-            }
-        };
-        this.getSortOrder().addListener(sortOrderListener);
+        if (mainTablePreferences.getResizeColumnsToFit()) {
+            this.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_SUBSEQUENT_COLUMNS);
+        }
 
         this.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
 
@@ -267,11 +260,14 @@ public class MainTable extends TableView<BibEntryTableViewModel> {
                 })
         );
 
-        UiTaskExecutor.runInJavaFXThread(columnPreferenceSynchronizer::restoreConfiguredSortOrder);
-        columnPreferenceSynchronizer.addListeners();
+        UiTaskExecutor.runInJavaFXThread(() -> restoreConfiguredSortOrder(mainTablePreferences));
 
         // Store visual state
-        persistenceVisualStateTable.addListeners();
+        new PersistenceVisualStateTable(this, mainTablePreferences.getColumnPreferences()).addListeners();
+
+        // Apply changed preferences, e.g., from the preferences dialog
+        this.columnPreferenceSynchronizer = new MainTableColumnPreferenceSynchronizer(this, mainTableColumnFactory, mainTablePreferences);
+        columnPreferenceSynchronizer.addListeners();
 
         setupKeyBindings(keyBindingRepository);
 
@@ -287,6 +283,30 @@ public class MainTable extends TableView<BibEntryTableViewModel> {
 
         // Enable the header right-click menu.
         new MainTableHeaderContextMenu(this, mainTableColumnFactory, tabContainer, dialogService).show(true);
+    }
+
+    private void restoreConfiguredSortOrder(MainTablePreferences mainTablePreferences) {
+        List<TableColumn<BibEntryTableViewModel, ?>> restoredSortOrder =
+                new ArrayList<>(mainTablePreferences.getColumnPreferences()
+                                                    .getColumnSortOrder()
+                                                    .stream()
+                                                    .map(columnModel ->
+                                                            this.getColumns().stream()
+                                                                .map(column -> (MainTableColumn<?>) column)
+                                                                .filter(column -> column.getModel().equals(columnModel))
+                                                                .findFirst()
+                                                                .orElse(null))
+                                                    .filter(Objects::nonNull)
+                                                    .map(column -> (TableColumn<BibEntryTableViewModel, ?>) column)
+                                                    .toList());
+
+        if (restoredSortOrder.isEmpty()) {
+            return;
+        }
+
+        restoredSortOrder.forEach(column -> LOGGER.trace("Adding sort order for col {} ", column));
+        restoredSortOrder.addFirst(getColumns().getFirst());
+        this.getSortOrder().setAll(restoredSortOrder);
     }
 
     /// This is called, if a user starts typing some characters into the keyboard with focus on main table. The [MainTable] will scroll to the cell with the same starting column value and typed string
@@ -625,14 +645,7 @@ public class MainTable extends TableView<BibEntryTableViewModel> {
     }
 
     public void dispose() {
-        if (disposed) {
-            return;
-        }
-
-        disposed = true;
-        getSortOrder().removeListener(sortOrderListener);
         columnPreferenceSynchronizer.dispose();
-        persistenceVisualStateTable.dispose();
         database.getDatabase().unregisterListener(this);
     }
 
