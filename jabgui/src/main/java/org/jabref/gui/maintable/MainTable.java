@@ -95,8 +95,8 @@ public class MainTable extends TableView<BibEntryTableViewModel> {
     private final FilePreferences filePreferences;
     private final ImportHandler importHandler;
     private final ClipboardContentGenerator clipboardContentGenerator;
-    private final ColumnPreferenceApplier columnPreferenceApplier;
-    private final PersistenceVisualStateTable persistenceVisualStateTable;
+    private final ColumnPreferencesApplier columnPreferencesApplier;
+    private final ColumnPreferencesRecorder columnPreferencesRecorder;
 
     private long lastKeyPressTime;
     private String columnSearchTerm;
@@ -146,8 +146,8 @@ public class MainTable extends TableView<BibEntryTableViewModel> {
                 stateManager,
                 taskExecutor);
 
-        this.columnPreferenceApplier = new ColumnPreferenceApplier(this, mainTableColumnFactory, mainTablePreferences);
-        columnPreferenceApplier.bind();
+        this.columnPreferencesApplier = new ColumnPreferencesApplier(this, mainTableColumnFactory, mainTablePreferences);
+        columnPreferencesApplier.bind();
 
         new ViewModelTableRowFactory<BibEntryTableViewModel>()
                 .withOnMouseClickedEvent((entry, event) -> {
@@ -253,11 +253,11 @@ public class MainTable extends TableView<BibEntryTableViewModel> {
                 })
         );
 
-        UiTaskExecutor.runInJavaFXThread(columnPreferenceApplier::applySortOrder);
+        UiTaskExecutor.runInJavaFXThread(columnPreferencesApplier::applySortOrder);
 
         // Store visual state
-        this.persistenceVisualStateTable = new PersistenceVisualStateTable(this, mainTablePreferences.getColumnPreferences());
-        persistenceVisualStateTable.bind();
+        this.columnPreferencesRecorder = new ColumnPreferencesRecorder(this, mainTablePreferences.getColumnPreferences());
+        columnPreferencesRecorder.bind();
 
         setupKeyBindings(keyBindingRepository);
 
@@ -611,8 +611,8 @@ public class MainTable extends TableView<BibEntryTableViewModel> {
     }
 
     public void dispose() {
-        columnPreferenceApplier.unbind();
-        persistenceVisualStateTable.unbind();
+        columnPreferencesApplier.unbind();
+        columnPreferencesRecorder.unbind();
         database.getDatabase().unregisterListener(this);
     }
 

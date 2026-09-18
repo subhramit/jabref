@@ -20,13 +20,13 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 
 @NullMarked
 @ExtendWith(JavaFxExtension.class)
-class PersistenceVisualStateTableTest {
+class ColumnPreferencesRecorderTest {
 
     private TableView<BibEntryTableViewModel> table;
     private ColumnPreferences preferences;
     private MainTableColumnModel titleColumn;
     private MainTableColumnModel relevanceColumn;
-    private PersistenceVisualStateTable persistenceVisualStateTable;
+    private ColumnPreferencesRecorder columnPreferencesRecorder;
     private int columnPreferenceChanges;
 
     @BeforeEach
@@ -41,8 +41,8 @@ class PersistenceVisualStateTableTest {
                 new MainTableColumn<>(relevanceColumn)));
 
         preferences = new ColumnPreferences(List.of(titleColumn, relevanceColumn), List.of(titleColumn));
-        persistenceVisualStateTable = new PersistenceVisualStateTable(table, preferences);
-        persistenceVisualStateTable.bind();
+        columnPreferencesRecorder = new ColumnPreferencesRecorder(table, preferences);
+        columnPreferencesRecorder.bind();
         preferences.getColumns().addListener((InvalidationListener) _ -> columnPreferenceChanges++);
     }
 
@@ -82,7 +82,7 @@ class PersistenceVisualStateTableTest {
 
     @Test
     void unboundTableStopsUpdatingPreferences() {
-        persistenceVisualStateTable.unbind();
+        columnPreferencesRecorder.unbind();
 
         table.getColumns().remove(2);
 

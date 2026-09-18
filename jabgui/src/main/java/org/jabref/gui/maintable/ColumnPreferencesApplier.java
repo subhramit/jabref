@@ -17,14 +17,18 @@ import org.jspecify.annotations.NullMarked;
 /// Applies the column preferences (columns, sort order, resize policy) to the main table: initially and whenever
 /// they change, e.g., in the preferences dialog.
 ///
-/// This is the preferences-to-table direction. The opposite direction is [PersistenceVisualStateTable].
-/// Both directions compare columns by [PersistenceVisualStateTable#toPersistedModels(List)]. Each change is
+/// This is the preferences-to-table direction. The opposite direction is [ColumnPreferencesRecorder].
+/// Both directions compare columns by [ColumnPreferencesRecorder#toPersistedModels(List)]. Each change is
 /// applied with a single `setAll`, so that the write-back of the table equals the preferences and ends the round trip.
+///
+/// All main tables share the same preferences. Hence, reordering, adding, removing or sorting columns in one library
+/// tab is applied to the main tables of all other open library tabs as well. This is intended: the column preferences
+/// are global, so all tables show the state that will be restored at the next start.
 ///
 /// New columns are created from the model instances held by the preferences. Resized widths are persisted only
 /// because table and preferences share these instances (see [ColumnPreferences]).
 @NullMarked
-class ColumnPreferenceApplier {
+class ColumnPreferencesApplier {
 
     private final TableView<BibEntryTableViewModel> table;
     private final MainTableColumnFactory columnFactory;
@@ -34,7 +38,7 @@ class ColumnPreferenceApplier {
     private final ListChangeListener<MainTableColumnModel> sortOrderListener = _ -> applySortOrder();
     private final ChangeListener<Boolean> resizeColumnsListener = (_, _, resizeColumnsToFit) -> applyResizePolicy(resizeColumnsToFit);
 
-    ColumnPreferenceApplier(TableView<BibEntryTableViewModel> table,
+    ColumnPreferencesApplier(TableView<BibEntryTableViewModel> table,
                             MainTableColumnFactory columnFactory,
                             MainTablePreferences mainTablePreferences) {
         this.table = table;
@@ -77,7 +81,7 @@ class ColumnPreferenceApplier {
     private void applyColumns() {
         List<MainTableColumnModel> configuredColumns = configured(mainTablePreferences.getColumnPreferences().getColumns());
         Optional<TableColumn<BibEntryTableViewModel, ?>> matchCategoryColumn = findMatchCategoryColumn();
-        if (matchCategoryColumn.isPresent() && configuredColumns.equals(PersistenceVisualStateTable.toPersistedModels(table.getColumns()))) {
+        if (matchCategoryColumn.isPresent() && configuredColumns.equals(ColumnPreferencesRecorder.toPersistedModels(table.getColumns()))) {
             return;
         }
 

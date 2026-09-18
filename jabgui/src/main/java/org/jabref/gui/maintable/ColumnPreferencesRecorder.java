@@ -15,13 +15,13 @@ import org.slf4j.LoggerFactory;
 
 /// Keep track of changes made to the columns (reordering, resorting, resizing).
 ///
-/// This is the table-to-preferences direction. The opposite direction is [ColumnPreferenceApplier].
+/// This is the table-to-preferences direction. The opposite direction is [ColumnPreferencesApplier].
 ///
 /// Resizing and changing the sort type need no listener here: the preferences receive the column models of the
 /// table itself, and [ColumnPreferences] reports changes of their properties.
-public class PersistenceVisualStateTable {
+public class ColumnPreferencesRecorder {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(PersistenceVisualStateTable.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ColumnPreferencesRecorder.class);
 
     protected final TableView<BibEntryTableViewModel> table;
     protected final ColumnPreferences preferences;
@@ -29,7 +29,7 @@ public class PersistenceVisualStateTable {
     private final InvalidationListener columnsListener = _ -> updateColumns();
     private final ListChangeListener<TableColumn<BibEntryTableViewModel, ?>> sortOrderListener = _ -> updateSortOrder();
 
-    public PersistenceVisualStateTable(TableView<BibEntryTableViewModel> table, ColumnPreferences preferences) {
+    public ColumnPreferencesRecorder(TableView<BibEntryTableViewModel> table, ColumnPreferences preferences) {
         this.table = table;
         this.preferences = preferences;
     }
@@ -46,7 +46,7 @@ public class PersistenceVisualStateTable {
 
     /// Returns the models of the given columns as they are stored in the preferences.
     ///
-    /// [ColumnPreferenceApplier] compares with the same projection. If both directions used different ones, a change
+    /// [ColumnPreferencesApplier] compares with the same projection. If both directions used different ones, a change
     /// written by one direction would be reverted by the other.
     static List<MainTableColumnModel> toPersistedModels(List<? extends TableColumn<BibEntryTableViewModel, ?>> columns) {
         return columns.stream()

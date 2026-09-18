@@ -23,12 +23,12 @@ import static org.mockito.Mockito.when;
 
 @NullMarked
 @ExtendWith(JavaFxExtension.class)
-class ColumnPreferenceApplierTest {
+class ColumnPreferencesApplierTest {
 
     private TableView<BibEntryTableViewModel> table;
     private ColumnPreferences columnPreferences;
     private MainTablePreferences mainTablePreferences;
-    private ColumnPreferenceApplier applier;
+    private ColumnPreferencesApplier applier;
     private MainTableColumnModel titleColumn;
     private MainTableColumnModel yearColumn;
     private MainTableColumnModel relevanceColumn;
@@ -48,10 +48,10 @@ class ColumnPreferenceApplierTest {
         when(columnFactory.createMatchCategoryColumn(any(MainTableColumnModel.class))).thenAnswer(invocation -> new MainTableColumn<>((MainTableColumnModel) invocation.getArgument(0)));
 
         // Same order as in MainTable, so that the write-back of the table is part of every test
-        applier = new ColumnPreferenceApplier(table, columnFactory, mainTablePreferences);
+        applier = new ColumnPreferencesApplier(table, columnFactory, mainTablePreferences);
         applier.bind();
         applier.applySortOrder();
-        new PersistenceVisualStateTable(table, columnPreferences).bind();
+        new ColumnPreferencesRecorder(table, columnPreferences).bind();
     }
 
     @Test
@@ -156,10 +156,10 @@ class ColumnPreferenceApplierTest {
     }
 
     private List<MainTableColumnModel> visibleColumns() {
-        return PersistenceVisualStateTable.toPersistedModels(table.getColumns());
+        return ColumnPreferencesRecorder.toPersistedModels(table.getColumns());
     }
 
     private List<MainTableColumnModel> visibleSortOrder() {
-        return PersistenceVisualStateTable.toPersistedModels(table.getSortOrder());
+        return ColumnPreferencesRecorder.toPersistedModels(table.getSortOrder());
     }
 }
